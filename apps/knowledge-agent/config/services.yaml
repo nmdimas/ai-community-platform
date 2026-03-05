@@ -1,0 +1,87 @@
+parameters:
+    app.opensearch_url: '%env(OPENSEARCH_URL)%'
+    app.opensearch_index: '%env(OPENSEARCH_INDEX)%'
+    app.rabbitmq_url: '%env(RABBITMQ_URL)%'
+    app.litellm_base_url: '%env(LITELLM_BASE_URL)%'
+    app.litellm_api_key: '%env(LITELLM_API_KEY)%'
+    app.embedding_model: '%env(EMBEDDING_MODEL)%'
+    app.internal_token: '%env(APP_INTERNAL_TOKEN)%'
+    app.admin_public_url: '%env(ADMIN_PUBLIC_URL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Kernel.php'
+
+    App\OpenSearch\OpenSearchClientFactory:
+        arguments:
+            $opensearchUrl: '%app.opensearch_url%'
+
+    OpenSearch\Client:
+        factory: ['@App\OpenSearch\OpenSearchClientFactory', 'create']
+
+    App\OpenSearch\OpenSearchIndexManager:
+        arguments:
+            $client: '@OpenSearch\Client'
+            $indexName: '%app.opensearch_index%'
+
+    App\OpenSearch\KnowledgeRepository:
+        arguments:
+            $client: '@OpenSearch\Client'
+            $indexName: '%app.opensearch_index%'
+
+    App\RabbitMQ\RabbitMQPublisher:
+        arguments:
+            $rabbitmqUrl: '%app.rabbitmq_url%'
+
+    App\Workflow\KnowledgeExtractionAgent:
+        arguments:
+            $litellmBaseUrl: '%app.litellm_base_url%'
+            $litellmApiKey: '%app.litellm_api_key%'
+            $model: 'gpt-4o-mini'
+            $settingsRepository: '@App\Repository\SettingsRepository'
+
+    App\Service\EmbeddingService:
+        arguments:
+            $litellmBaseUrl: '%app.litellm_base_url%'
+            $litellmApiKey: '%app.litellm_api_key%'
+            $embeddingModel: '%app.embedding_model%'
+
+    App\Command\KnowledgeWorkerCommand:
+        arguments:
+            $rabbitmqUrl: '%app.rabbitmq_url%'
+
+    App\Controller\Api\UploadController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+
+    App\Controller\Api\EntriesController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+
+    App\Controller\Api\EntryController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+
+    App\Controller\Api\A2AController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+
+    App\Controller\Admin\KnowledgeAdminController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+
+    App\Controller\Api\ManifestController:
+        arguments:
+            $adminPublicUrl: '%app.admin_public_url%'
+
+    App\Controller\Api\Internal\MigrateController:
+        arguments:
+            $internalToken: '%app.internal_token%'
+            $projectDir: '%kernel.project_dir%'

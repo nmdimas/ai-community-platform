@@ -1,0 +1,60 @@
+parameters:
+    app.internal_token: '%env(APP_INTERNAL_TOKEN)%'
+    app.openclaw_gateway_token: '%env(OPENCLAW_GATEWAY_TOKEN)%'
+    app.openclaw_discovery_push_url: '%env(OPENCLAW_DISCOVERY_PUSH_URL)%'
+    app.redis_url: '%env(REDIS_URL)%'
+    app.opensearch_url: '%env(OPENSEARCH_URL)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\AgentRegistry\AgentRegistryRepository:
+        arguments:
+            $cache: '@cache.agent_registry'
+
+    App\AgentDiscovery\OpenClawSyncService:
+        arguments:
+            $cache: '@cache.agent_registry'
+            $pushUrl: '%app.openclaw_discovery_push_url%'
+            $gatewayToken: '%app.openclaw_gateway_token%'
+
+    App\Controller\Api\OpenClaw\DiscoveryController:
+        arguments:
+            $cache: '@cache.agent_registry'
+            $gatewayToken: '%app.openclaw_gateway_token%'
+
+    App\Controller\Api\OpenClaw\InvokeController:
+        arguments:
+            $gatewayToken: '%app.openclaw_gateway_token%'
+
+    App\AgentInstaller\Strategy\PostgresInstallStrategy:
+        arguments:
+            $connection: '@doctrine.dbal.provisioner_connection'
+
+    App\AgentInstaller\Strategy\RedisInstallStrategy:
+        arguments:
+            $redisUrl: '%app.redis_url%'
+
+    App\AgentInstaller\Strategy\OpenSearchInstallStrategy:
+        arguments:
+            $openSearchUrl: '%app.opensearch_url%'
+
+    App\AgentInstaller\AgentInstallerService:
+        arguments:
+            $postgres: '@App\AgentInstaller\Strategy\PostgresInstallStrategy'
+            $redis: '@App\AgentInstaller\Strategy\RedisInstallStrategy'
+            $opensearch: '@App\AgentInstaller\Strategy\OpenSearchInstallStrategy'
+
+    App\AgentInstaller\AgentMigrationTrigger:
+        arguments:
+            $internalToken: '%app.internal_token%'
+

@@ -1,0 +1,184 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Управління агентами — Admin{% endblock %}
+{% block page_title %}Управління агентами{% endblock %}
+
+{% block content %}
+    <div class="action-bar">
+        <span id="discoverResult" class="action-result" style="display:none"></span>
+        <button class="btn btn-discover" id="discoverBtn" onclick="runDiscovery()">Виявити агентів</button>
+    </div>
+
+    <div class="glass-card" style="padding:0;overflow:hidden;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Назва</th>
+                    <th>Версія</th>
+                    <th>Опис</th>
+                    <th>Статус</th>
+                    <th>Здоров'я</th>
+                    <th>Оновлено</th>
+                    <th>Дії</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if agents is empty %}
+                    <tr>
+                        <td colspan="7" class="empty-row">Жодного агента не зареєстровано. Натисніть «Виявити агентів» для пошуку через Traefik.</td>
+                    </tr>
+                {% else %}
+                    {% for agent in agents %}
+                        {% set manifest = agent.manifest %}
+                        <tr data-agent-name="{{ agent.name }}">
+                            <td>
+                                <strong>{{ agent.name }}</strong>
+                                <details>
+                                    <summary>Деталі маніфесту</summary>
+                                    <div>
+                                        {% if manifest.commands is defined and manifest.commands|length > 0 %}
+                                            <p><strong>Команди:</strong> {{ manifest.commands|join(', ') }}</p>
+                                        {% endif %}
+                                        {% if manifest.events is defined and manifest.events|length > 0 %}
+                                            <p><strong>Події:</strong> {{ manifest.events|join(', ') }}</p>
+                                        {% endif %}
+                                        {% if manifest.capabilities is defined and manifest.capabilities|length > 0 %}
+                                            <p><strong>Можливості:</strong> {{ manifest.capabilities|join(', ') }}</p>
+                                        {% endif %}
+                                        {% if manifest.permissions is defined %}
+                                            <p><strong>Дозволи:</strong> {{ manifest.permissions|join(', ') }}</p>
+                                        {% endif %}
+                                        {% if manifest.a2a_endpoint is defined %}
+                                            <p><strong>A2A:</strong> {{ manifest.a2a_endpoint }}</p>
+                                        {% endif %}
+                                        {% if agent.config != '{}' %}
+                                            <p><strong>Конфіг:</strong></p>
+                                            <pre>{{ agent.config }}</pre>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                            </td>
+                            <td>{{ agent.version }}</td>
+                            <td>{{ manifest.description ?? '—' }}</td>
+                            <td>
+                                {% if agent.enabled %}
+                                    <span class="badge badge-enabled">Увімкнено</span>
+                                {% else %}
+                                    <span class="badge badge-disabled">Вимкнено</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if agent.health_status == 'healthy' %}
+                                    <span class="badge badge-healthy">Healthy</span>
+                                {% elseif agent.health_status == 'degraded' %}
+                                    {% if agent.violations|length > 0 %}
+                                        <span class="badge badge-degraded"
+                                              onclick="showViolations('{{ agent.name|e('js') }}', {{ agent.violations|json_encode|e('html_attr') }})"
+                                              title="Натисніть, щоб побачити порушення">Degraded ({{ agent.violations|length }})</span>
+                                    {% else %}
+                                        <span class="badge badge-degraded">Degraded</span>
+                                    {% endif %}
+                                {% elseif agent.health_status == 'unavailable' %}
+                                    <span class="badge badge-unavailable"
+                                          {% if agent.violations|length > 0 %}onclick="showViolations('{{ agent.name|e('js') }}', {{ agent.violations|json_encode|e('html_attr') }})" title="Натисніть, щоб побачити деталі"{% endif %}>Unavailable</span>
+                                {% elseif agent.health_status == 'error' %}
+                                    <span class="badge badge-error"
+                                          {% if agent.violations|length > 0 %}onclick="showViolations('{{ agent.name|e('js') }}', {{ agent.violations|json_encode|e('html_attr') }})" title="Натисніть, щоб побачити помилки"{% endif %}>Error ({{ agent.violations|length }})</span>
+                                {% else %}
+                                    <span class="badge badge-unknown">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ agent.updated_at|date('d.m.Y H:i') }}</td>
+                            <td>
+                                {% if agent.enabled %}
+                                    <button type="button" class="btn btn-disable"
+                                            onclick="toggleAgent('{{ agent.name|e('js') }}', 'disable')">Вимкнути</button>
+                                {% else %}
+                                    <button type="button" class="btn btn-enable"
+                                            onclick="toggleAgent('{{ agent.name|e('js') }}', 'enable')">Увімкнути</button>
+                                {% endif %}
+                                <a href="{{ path('admin_agent_settings', {name: agent.name}) }}" class="btn btn-settings">Налаштування</a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    {# Violations modal #}
+    <div class="modal-overlay" id="violationsModal" onclick="closeModal(event)">
+        <div class="modal">
+            <h3 id="modalTitle">Порушення конвенцій</h3>
+            <ul id="modalList"></ul>
+            <button class="btn btn-disable modal-close" onclick="document.getElementById('violationsModal').classList.remove('active')">Закрити</button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function runDiscovery() {
+    var btn = document.getElementById('discoverBtn');
+    var result = document.getElementById('discoverResult');
+    btn.disabled = true;
+    btn.textContent = 'Виявлення...';
+    result.style.display = 'none';
+
+    fetch('{{ path('admin_agents_discover') }}', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        result.textContent = 'Виявлено: ' + data.discovered + ' агент(ів)';
+        result.style.color = 'var(--success)';
+        result.style.display = 'inline';
+        btn.disabled = false;
+        btn.textContent = 'Виявити агентів';
+        setTimeout(function() { location.reload(); }, 1200);
+    })
+    .catch(function() {
+        result.textContent = 'Помилка запиту';
+        result.style.color = 'var(--danger)';
+        result.style.display = 'inline';
+        btn.disabled = false;
+        btn.textContent = 'Виявити агентів';
+    });
+}
+
+function toggleAgent(name, action) {
+    var label = action === 'enable' ? 'Увімкнути' : 'Вимкнути';
+    if (!confirm(label + ' агент ' + name + '?')) return;
+
+    fetch('/api/v1/internal/agents/' + encodeURIComponent(name) + '/' + action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(function(r) {
+        if (r.ok) { location.reload(); }
+        else { alert('Помилка: ' + r.status); }
+    })
+    .catch(function() { alert('Помилка мережі'); });
+}
+
+function showViolations(name, violations) {
+    var list = document.getElementById('modalList');
+    document.getElementById('modalTitle').textContent = 'Порушення: ' + name;
+    list.innerHTML = '';
+    var items = typeof violations === 'string' ? JSON.parse(violations) : violations;
+    items.forEach(function(v) {
+        var li = document.createElement('li');
+        li.textContent = v;
+        list.appendChild(li);
+    });
+    document.getElementById('violationsModal').classList.add('active');
+}
+
+function closeModal(e) {
+    if (e.target === document.getElementById('violationsModal')) {
+        e.target.classList.remove('active');
+    }
+}
+</script>
+{% endblock %}

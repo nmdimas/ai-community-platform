@@ -1,0 +1,133 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}{{ agent_name }} — Налаштування{% endblock %}
+{% block page_title %}Налаштування: {{ agent_name }}{% endblock %}
+
+{% block content %}
+    <div class="iframe-header">
+        <a href="{{ path('admin_agents') }}">&larr; Назад до агентів</a>
+        <span class="badge {{ agent.enabled ? 'badge-enabled' : 'badge-disabled' }}">
+            {{ agent.enabled ? 'Увімкнено' : 'Вимкнено' }}
+        </span>
+    </div>
+
+    {# Storage provisioning info #}
+    {% if has_own_storage %}
+        <div class="glass-card" style="margin-bottom:1.5rem;border-left:3px solid var(--info, #3b82f6);">
+            <p style="margin:0;font-size:.9rem;color:var(--text-muted);">
+                Цей агент має власне сховище.
+                {% if installed_at %}
+                    Інстальовано: {{ installed_at }}.
+                {% else %}
+                    Сховище буде створено при увімкненні агента.
+                {% endif %}
+                {% if admin_url %}
+                    <a href="{{ admin_url }}" target="_blank">Налаштування агента &rarr;</a>
+                {% endif %}
+            </p>
+        </div>
+    {% endif %}
+
+    {# Agent config form (deprecated for agents with own storage) #}
+    <div class="glass-card" style="margin-bottom:1.5rem;">
+        <h2>Конфігурація</h2>
+        {% if has_own_storage %}
+            <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:1rem;">
+                Ця форма зберігає конфіг у реєстрі платформи. Агент із власним сховищем керує конфігом самостійно.
+            </p>
+        {% endif %}
+        <form id="configForm" onsubmit="saveConfig(event)">
+            <div style="margin-bottom:1rem;">
+                <label for="configDescription" class="form-label">Опис</label>
+                <textarea id="configDescription" class="form-input" rows="3">{{ config.description ?? '' }}</textarea>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label for="configSystemPrompt" class="form-label">Системний промт</label>
+                <textarea id="configSystemPrompt" class="form-input" rows="5">{{ config.system_prompt ?? '' }}</textarea>
+            </div>
+            <div style="display:flex;gap:.5rem;align-items:center;">
+                <button type="submit" class="btn btn-primary" id="configSaveBtn">Зберегти</button>
+                <span id="configResult" class="action-result" style="display:none;"></span>
+            </div>
+        </form>
+    </div>
+
+    {# Manifest info #}
+    <div class="glass-card" style="margin-bottom:1.5rem;">
+        <h2>Маніфест</h2>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:.5rem 1rem;font-size:.9rem;">
+            <span style="color:var(--text-muted);">Версія:</span>
+            <span>{{ agent.version }}</span>
+            {% if manifest.description is defined %}
+                <span style="color:var(--text-muted);">Опис:</span>
+                <span>{{ manifest.description }}</span>
+            {% endif %}
+            {% if manifest.commands is defined and manifest.commands|length > 0 %}
+                <span style="color:var(--text-muted);">Команди:</span>
+                <span>{{ manifest.commands|join(', ') }}</span>
+            {% endif %}
+            {% if manifest.events is defined and manifest.events|length > 0 %}
+                <span style="color:var(--text-muted);">Події:</span>
+                <span>{{ manifest.events|join(', ') }}</span>
+            {% endif %}
+            {% if manifest.capabilities is defined and manifest.capabilities|length > 0 %}
+                <span style="color:var(--text-muted);">Можливості:</span>
+                <span>{{ manifest.capabilities|join(', ') }}</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Agent admin iframe (if admin_url is available) #}
+    {% if admin_url %}
+        <div class="glass-card" style="padding:0;overflow:hidden;">
+            <div style="padding:1rem 1.5rem;border-bottom:1px solid var(--bg-card-border);">
+                <h2 style="margin:0;">Панель агента</h2>
+            </div>
+            <div class="iframe-container">
+                <iframe src="{{ admin_url }}" title="Панель {{ agent_name }}"></iframe>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function saveConfig(e) {
+    e.preventDefault();
+    var btn = document.getElementById('configSaveBtn');
+    var result = document.getElementById('configResult');
+    btn.disabled = true;
+    btn.textContent = 'Збереження...';
+
+    var config = {
+        description: document.getElementById('configDescription').value,
+        system_prompt: document.getElementById('configSystemPrompt').value
+    };
+
+    fetch('/api/v1/internal/agents/{{ agent_name|e('js') }}/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body: JSON.stringify(config)
+    })
+    .then(function(r) {
+        if (r.ok) {
+            result.textContent = 'Збережено';
+            result.style.color = 'var(--success)';
+        } else {
+            result.textContent = 'Помилка: ' + r.status;
+            result.style.color = 'var(--danger)';
+        }
+        result.style.display = 'inline';
+        btn.disabled = false;
+        btn.textContent = 'Зберегти';
+    })
+    .catch(function() {
+        result.textContent = 'Помилка мережі';
+        result.style.color = 'var(--danger)';
+        result.style.display = 'inline';
+        btn.disabled = false;
+        btn.textContent = 'Зберегти';
+    });
+}
+</script>
+{% endblock %}

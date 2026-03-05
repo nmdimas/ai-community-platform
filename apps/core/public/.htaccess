@@ -1,0 +1,42 @@
+# Use the front controller as index file. It serves as a fallback solution when
+# every other rewrite/redirect fails (e.g. in case of multiple pathinfo features).
+DirectoryIndex index.php
+
+# By default, Apache does not evaluate symbolic links if you did not enable this
+# feature in your server configuration. Uncomment the following line if you
+# install assets as symlinks or if you experience problems related to symlinks
+# when compiling LESS/Sass/CoffeeScript assets.
+# Options +FollowSymlinks
+
+# Disabling MultiViews prevents unwanted negotiation, e.g. "/index" should not resolve
+# to the front controller "/index.php" but be a 404 in case of "/index.php" is not wanted.
+Options -MultiViews
+
+RewriteEngine On
+
+# Determine the RewriteBase automatically and set it as environment variable.
+# If you are using Apache aliases or something similar, chances are that the
+# temporary variable is not correct below. In this case, you can set the
+# temporary variable manually using the following line:
+# RewriteRule ^ - [E=BASE:/path/to/your/app]
+RewriteCond %{REQUEST_URI}::$0 ^(/.+)/(.*)::\2$
+RewriteRule ^ - [E=BASE:%1]
+
+# Sets the HTTP_AUTHORIZATION header removed by Apache
+RewriteCond %{HTTP:Authorization} .+
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%0]
+
+# Redirect to URI without front controller to prevent duplicate content
+# (with and without `/index.php`). Only do this redirect on the initial
+# rewrite by Apache and not on subsequent cycles. Also allow for correct
+# redirects from @apache mod_alias when the alias has been changed.
+RewriteCond %{ENV:REDIRECT_STATUS} =""
+RewriteCond %{REQUEST_URI} ^/index\.php(/|$)
+RewriteRule ^ %{ENV:BASE}%1 [R=301,L]
+
+# If the requested filename exists, simply serve it.
+# We only want to let Apache serve files and not directories.
+RewriteCond %{REQUEST_FILENAME} !-f
+# Do not escape forward slashes $0 in the RewriteRule pattern.
+# e.g. to match "path@1/index.html" use "path@1" and not "path%401"
+RewriteRule ^ %{ENV:BASE}/index.php [L]

@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Адмін — База знань</title>
+    <style>
+        :root {
+            --bg-primary: #0f172a;
+            --bg-card: rgba(30,41,59,.7);
+            --bg-card-solid: #1e293b;
+            --bg-card-border: rgba(148,163,184,.15);
+            --bg-input: rgba(15,23,42,.6);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #22c55e;
+            --success-bg: rgba(34,197,94,.15);
+            --danger: #ef4444;
+            --danger-bg: rgba(239,68,68,.15);
+            --warning: #eab308;
+            --radius: 8px;
+            --radius-sm: 4px;
+            --transition: .2s ease;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; color: var(--text-primary); background: var(--bg-primary); line-height: 1.5; }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--bg-card-border); margin-bottom: 1.5rem; padding: 0 1rem; }
+        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-secondary); padding: .75rem 1rem; cursor: pointer; font-size: .9rem; transition: all var(--transition); }
+        .tab-btn:hover { color: var(--text-primary); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-panel { display: none; padding: 0 1rem 1rem; }
+        .tab-panel.active { display: block; }
+
+        /* Cards */
+        .card { background: var(--bg-card); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 1.25rem; margin-bottom: 1rem; backdrop-filter: blur(12px); }
+        .card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+        .card h3 { margin: 0 0 .75rem; font-size: 1rem; color: var(--text-secondary); }
+
+        /* Forms */
+        .form-label { display: block; margin-bottom: .3rem; font-size: .85rem; color: var(--text-secondary); }
+        .form-input { width: 100%; padding: .6rem .75rem; border: 1px solid var(--bg-card-border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); font-size: .9rem; outline: none; transition: border var(--transition); font-family: inherit; resize: vertical; }
+        .form-input:focus { border-color: var(--accent); }
+        .form-input:disabled { opacity: .6; cursor: not-allowed; }
+        select.form-input { appearance: auto; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: .85rem; font-weight: 600; transition: all var(--transition); }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .btn-danger:hover { opacity: .85; }
+        .btn-sm { padding: .3rem .6rem; font-size: .8rem; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: .5rem .75rem; font-size: .8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--bg-card-border); }
+        td { padding: .6rem .75rem; border-bottom: 1px solid var(--bg-card-border); vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(148,163,184,.05); }
+
+        /* Layout helpers */
+        .split-layout { display: grid; grid-template-columns: 260px 1fr; gap: 1rem; }
+        .tree-panel { max-height: 70vh; overflow-y: auto; }
+        .tree-item { padding: .25rem .5rem; cursor: pointer; border-radius: var(--radius-sm); font-size: .9rem; }
+        .tree-item:hover { background: rgba(148,163,184,.1); }
+        .tree-item.active { background: rgba(59,130,246,.15); color: var(--accent); }
+        .tree-count { color: var(--text-muted); font-size: .8rem; margin-left: .25rem; }
+
+        /* Toggle switch */
+        .toggle-wrap { display: flex; align-items: center; gap: .75rem; }
+        .toggle { position: relative; width: 44px; height: 24px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; cursor: pointer; inset: 0; background: var(--text-muted); border-radius: 24px; transition: var(--transition); }
+        .toggle-slider::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: var(--transition); }
+        .toggle input:checked + .toggle-slider { background: var(--success); }
+        .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+        /* Status messages */
+        .msg { display: inline-block; padding: .3rem .6rem; border-radius: var(--radius-sm); font-size: .85rem; margin-left: .5rem; }
+        .msg-success { background: var(--success-bg); color: var(--success); }
+        .msg-error { background: var(--danger-bg); color: var(--danger); }
+
+        /* DLQ */
+        .dlq-count { font-size: 2rem; font-weight: 700; }
+        .dlq-label { color: var(--text-muted); font-size: .9rem; }
+
+        /* Preview */
+        .preview-label { background: var(--warning); color: #000; padding: .3rem .6rem; border-radius: var(--radius-sm); font-size: .8rem; font-weight: 600; display: inline-block; margin-bottom: 1rem; }
+        .preview-result { background: var(--bg-input); border: 1px solid var(--bg-card-border); border-radius: var(--radius); padding: 1rem; margin-top: 1rem; white-space: pre-wrap; font-size: .9rem; }
+        .preview-result h4 { margin: 0 0 .5rem; color: var(--accent); }
+
+        /* Entry form */
+        .entry-form { display: none; }
+        .entry-form.active { display: block; }
+        .form-row { margin-bottom: .75rem; }
+        .form-actions { display: flex; gap: .5rem; align-items: center; margin-top: 1rem; }
+
+        @media (max-width: 768px) {
+            .split-layout { grid-template-columns: 1fr; }
+            .tabs { overflow-x: auto; }
+        }
+    </style>
+</head>
+<body data-token="{{ internal_token }}">
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="entries">Записи</button>
+        <button class="tab-btn" data-tab="settings">Налаштування</button>
+        <button class="tab-btn" data-tab="dlq">DLQ Монітор</button>
+        <button class="tab-btn" data-tab="preview">Перевірка</button>
+    </div>
+
+    {# ============ TAB 1: Entries ============ #}
+    <div id="tab-entries" class="tab-panel active">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+            <h2 style="margin:0;">Управління базою знань</h2>
+            <button class="btn btn-primary" onclick="showCreateForm()">+ Додати знання</button>
+        </div>
+
+        <div id="entryFormContainer" class="entry-form">
+            <div class="card">
+                <h3 id="entryFormTitle">Новий запис</h3>
+                <input type="hidden" id="entryId" value="">
+                <div class="form-row">
+                    <label class="form-label" for="entryTitle">Назва</label>
+                    <input type="text" id="entryTitle" class="form-input" placeholder="Назва запису">
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="entryBody">Зміст (Markdown)</label>
+                    <textarea id="entryBody" class="form-input" rows="8" placeholder="Зміст запису..."></textarea>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+                    <div class="form-row">
+                        <label class="form-label" for="entryCategory">Категорія</label>
+                        <select id="entryCategory" class="form-input">
+                            <option value="Technology">Technology</option>
+                            <option value="Business">Business</option>
+                            <option value="Community">Community</option>
+                            <option value="Events">Events</option>
+                            <option value="Resources">Resources</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label class="form-label" for="entryTags">Теги (через кому)</label>
+                        <input type="text" id="entryTags" class="form-input" placeholder="php, symfony, docker">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label class="form-label" for="entryTreePath">Шлях дерева</label>
+                    <input type="text" id="entryTreePath" class="form-input" placeholder="Technology/PHP/Symfony">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-primary" id="entrySubmitBtn" onclick="submitEntry()">Зберегти</button>
+                    <button class="btn" style="background:var(--text-muted);color:#fff;" onclick="hideEntryForm()">Скасувати</button>
+                    <span id="entryFormResult" class="msg" style="display:none;"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="split-layout">
+            <div class="card tree-panel">
+                <h3>Дерево знань</h3>
+                {% for name, node in tree %}
+                    <div class="tree-item" onclick="filterByTree('{{ name|e('js') }}')">
+                        {{ name }} <span class="tree-count">({{ node.count }})</span>
+                    </div>
+                {% else %}
+                    <p style="color:var(--text-muted);font-size:.9rem;">Порожньо</p>
+                {% endfor %}
+                <div class="tree-item" style="margin-top:.5rem;color:var(--accent);" onclick="filterByTree('')">Показати всі</div>
+            </div>
+
+            <div>
+                <div class="card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Назва</th>
+                                <th>Шлях</th>
+                                <th>Категорія</th>
+                                <th style="width:160px;">Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody id="entriesTable">
+                            {% for entry in entries %}
+                                <tr data-entry-id="{{ entry.id }}">
+                                    <td>{{ entry.title }}</td>
+                                    <td style="color:var(--text-muted);font-size:.85rem;">{{ entry.tree_path ?? '—' }}</td>
+                                    <td style="font-size:.85rem;">{{ entry.category ?? '—' }}</td>
+                                    <td>
+                                        <button class="btn btn-primary btn-sm" onclick="editEntry('{{ entry.id }}')">Редагувати</button>
+                                        <button class="btn btn-danger btn-sm" onclick="deleteEntry('{{ entry.id }}')">Видалити</button>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="4" style="color:var(--text-muted);text-align:center;">Записів немає</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ============ TAB 2: Settings ============ #}
+    <div id="tab-settings" class="tab-panel">
+        <div class="card">
+            <h2>Загальні налаштування</h2>
+            <div class="toggle-wrap" style="margin-bottom:1.5rem;">
+                <label class="toggle">
+                    <input type="checkbox" id="encyclopediaToggle" {{ (settings.encyclopedia_enabled ?? '1') == '1' ? 'checked' : '' }}>
+                    <span class="toggle-slider"></span>
+                </label>
+                <span>Веб-енциклопедія увімкнена</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Базові інструкції агента</h2>
+            <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:.75rem;">
+                Ці інструкції використовуються як основа системного промту для витягування знань.
+            </p>
+            <div class="form-row">
+                <textarea id="baseInstructions" class="form-input" rows="6" placeholder="Введіть базові інструкції для агента...">{{ settings.base_instructions ?? '' }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" id="settingsSaveBtn" onclick="saveSettings()">Зберегти</button>
+                <span id="settingsResult" class="msg" style="display:none;"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="display:flex;align-items:center;gap:.5rem;">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="var(--text-muted)"><path d="M8 1a4 4 0 0 0-4 4v3H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V5a4 4 0 0 0-4-4zm-2 4a2 2 0 1 1 4 0v3H6V5z"/></svg>
+                Інструкції безпеки (тільки для читання)
+            </h2>
+            <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:.75rem;">
+                Ці інструкції завжди додаються до кожного запиту LLM і не можуть бути змінені.
+            </p>
+            <textarea class="form-input" rows="6" disabled>{{ security_instructions }}</textarea>
+        </div>
+    </div>
+
+    {# ============ TAB 3: DLQ Monitor ============ #}
+    <div id="tab-dlq" class="tab-panel">
+        <div class="card" style="text-align:center;">
+            <h2>Dead Letter Queue</h2>
+            <div class="dlq-count" id="dlqCount">&mdash;</div>
+            <div class="dlq-label">повідомлень у черзі помилок</div>
+            <div style="margin-top:1.5rem;">
+                <button class="btn btn-primary" id="dlqRequeueBtn" onclick="requeueDlq()">Повторити обробку</button>
+                <button class="btn" style="background:var(--text-muted);color:#fff;margin-left:.5rem;" onclick="loadDlqCount()">Оновити</button>
+            </div>
+            <span id="dlqResult" class="msg" style="display:none;margin-top:1rem;"></span>
+        </div>
+    </div>
+
+    {# ============ TAB 4: Preview ============ #}
+    <div id="tab-preview" class="tab-panel">
+        <div class="card">
+            <span class="preview-label">Режим перегляду — дані не зберігаються</span>
+            <h2>Перевірка витягування знань</h2>
+            <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:.75rem;">
+                Вставте JSON-масив повідомлень для перевірки роботи агента. Результат не зберігається.
+            </p>
+            <div class="form-row">
+                <label class="form-label">Повідомлення (JSON)</label>
+                <textarea id="previewMessages" class="form-input" rows="8" placeholder='[{"text": "Привіт, хтось використовував Symfony Messenger?", "from": "user1"}, {"text": "Так, дуже зручно для async обробки", "from": "user2"}]'></textarea>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" id="previewBtn" onclick="runPreview()">Перевірити</button>
+                <span id="previewStatus" class="msg" style="display:none;"></span>
+            </div>
+            <div id="previewResult" class="preview-result" style="display:none;"></div>
+        </div>
+    </div>
+
+<script>
+var TOKEN = document.body.getAttribute('data-token');
+var API_BASE = '/api/v1/knowledge';
+
+// ---- Tabs ----
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.getAttribute('data-tab')).classList.add('active');
+
+        if (btn.getAttribute('data-tab') === 'dlq') { loadDlqCount(); }
+    });
+});
+
+// ---- Entries CRUD ----
+function showCreateForm() {
+    document.getElementById('entryFormContainer').classList.add('active');
+    document.getElementById('entryFormTitle').textContent = 'Новий запис';
+    document.getElementById('entryId').value = '';
+    document.getElementById('entryTitle').value = '';
+    document.getElementById('entryBody').value = '';
+    document.getElementById('entryCategory').value = 'Technology';
+    document.getElementById('entryTags').value = '';
+    document.getElementById('entryTreePath').value = '';
+    hideMsg('entryFormResult');
+}
+
+function hideEntryForm() {
+    document.getElementById('entryFormContainer').classList.remove('active');
+}
+
+function editEntry(id) {
+    showMsg('entryFormResult', 'Завантаження...', false);
+    document.getElementById('entryFormContainer').classList.add('active');
+    document.getElementById('entryFormTitle').textContent = 'Редагування запису';
+    document.getElementById('entryId').value = id;
+
+    fetch(API_BASE + '/entries/' + id)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var e = data.entry || data;
+            document.getElementById('entryTitle').value = e.title || '';
+            document.getElementById('entryBody').value = e.body || '';
+            document.getElementById('entryCategory').value = e.category || 'Technology';
+            document.getElementById('entryTags').value = Array.isArray(e.tags) ? e.tags.join(', ') : (e.tags || '');
+            document.getElementById('entryTreePath').value = e.tree_path || '';
+            hideMsg('entryFormResult');
+        })
+        .catch(function() { showMsg('entryFormResult', 'Помилка завантаження', true); });
+}
+
+function submitEntry() {
+    var id = document.getElementById('entryId').value;
+    var payload = {
+        title: document.getElementById('entryTitle').value,
+        body: document.getElementById('entryBody').value,
+        category: document.getElementById('entryCategory').value,
+        tags: document.getElementById('entryTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean),
+        tree_path: document.getElementById('entryTreePath').value
+    };
+
+    if (!payload.title || !payload.body) {
+        showMsg('entryFormResult', 'Назва та зміст обов\'язкові', true);
+        return;
+    }
+
+    var btn = document.getElementById('entrySubmitBtn');
+    btn.disabled = true;
+
+    var method = id ? 'PUT' : 'POST';
+    var url = id ? (API_BASE + '/entries/' + id) : (API_BASE + '/entries');
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json', 'X-Platform-Internal-Token': TOKEN },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) {
+        if (r.ok) {
+            showMsg('entryFormResult', 'Збережено', false);
+            setTimeout(function() { location.reload(); }, 800);
+        } else {
+            return r.json().then(function(d) { showMsg('entryFormResult', d.error || 'Помилка: ' + r.status, true); });
+        }
+    })
+    .catch(function() { showMsg('entryFormResult', 'Помилка мережі', true); })
+    .finally(function() { btn.disabled = false; });
+}
+
+function deleteEntry(id) {
+    if (!confirm('Видалити цей запис?')) return;
+
+    fetch(API_BASE + '/entries/' + id, {
+        method: 'DELETE',
+        headers: { 'X-Platform-Internal-Token': TOKEN }
+    })
+    .then(function(r) {
+        if (r.ok || r.status === 204) {
+            var row = document.querySelector('tr[data-entry-id="' + id + '"]');
+            if (row) row.remove();
+        } else {
+            alert('Помилка видалення: ' + r.status);
+        }
+    })
+    .catch(function() { alert('Помилка мережі'); });
+}
+
+function filterByTree(path) {
+    document.querySelectorAll('.tree-item').forEach(function(i) { i.classList.remove('active'); });
+    if (path && event && event.target) {
+        event.target.classList.add('active');
+    }
+    var url = location.pathname;
+    if (path) url += '?tree_path=' + encodeURIComponent(path);
+    location.href = url;
+}
+
+// ---- Settings ----
+function saveSettings() {
+    var btn = document.getElementById('settingsSaveBtn');
+    btn.disabled = true;
+    hideMsg('settingsResult');
+
+    var payload = {
+        encyclopedia_enabled: document.getElementById('encyclopediaToggle').checked ? '1' : '0'
+    };
+
+    var instructions = document.getElementById('baseInstructions').value;
+    if (instructions.trim() !== '') {
+        payload.base_instructions = instructions;
+    }
+
+    fetch('/admin/knowledge/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) {
+        return r.json().then(function(data) {
+            if (r.ok) {
+                showMsg('settingsResult', 'Збережено', false);
+            } else {
+                showMsg('settingsResult', data.error || 'Помилка', true);
+            }
+        });
+    })
+    .catch(function() { showMsg('settingsResult', 'Помилка мережі', true); })
+    .finally(function() { btn.disabled = false; });
+}
+
+// ---- DLQ ----
+function loadDlqCount() {
+    document.getElementById('dlqCount').textContent = '...';
+    fetch('/admin/knowledge/api/dlq')
+        .then(function(r) { return r.json(); })
+        .then(function(data) { document.getElementById('dlqCount').textContent = data.count; })
+        .catch(function() { document.getElementById('dlqCount').textContent = '?'; });
+}
+
+function requeueDlq() {
+    var btn = document.getElementById('dlqRequeueBtn');
+    btn.disabled = true;
+    hideMsg('dlqResult');
+
+    fetch('/admin/knowledge/api/dlq/requeue', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            showMsg('dlqResult', 'Повернено: ' + data.requeued, false);
+            loadDlqCount();
+        })
+        .catch(function() { showMsg('dlqResult', 'Помилка', true); })
+        .finally(function() { btn.disabled = false; });
+}
+
+// ---- Preview ----
+function runPreview() {
+    var btn = document.getElementById('previewBtn');
+    var resultDiv = document.getElementById('previewResult');
+    btn.disabled = true;
+    resultDiv.style.display = 'none';
+    showMsg('previewStatus', 'Обробка...', false);
+
+    var raw = document.getElementById('previewMessages').value;
+    var messages;
+    try {
+        messages = JSON.parse(raw);
+        if (!Array.isArray(messages)) throw new Error('not array');
+    } catch(e) {
+        showMsg('previewStatus', 'Невалідний JSON', true);
+        btn.disabled = false;
+        return;
+    }
+
+    fetch('/admin/knowledge/api/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: messages })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        hideMsg('previewStatus');
+        resultDiv.style.display = 'block';
+        if (data.valuable === false) {
+            resultDiv.innerHTML = '<h4>Результат</h4><p style="color:var(--warning);">Повідомлення не містять корисних знань.</p><p>' + escHtml(data.reason || '') + '</p>';
+        } else if (data.error) {
+            resultDiv.innerHTML = '<h4>Помилка</h4><p style="color:var(--danger);">' + escHtml(data.error) + '</p>';
+        } else {
+            resultDiv.innerHTML =
+                '<h4>Результат витягування</h4>' +
+                '<p><strong>Назва:</strong> ' + escHtml(data.title || '') + '</p>' +
+                '<p><strong>Категорія:</strong> ' + escHtml(data.category || '') + '</p>' +
+                '<p><strong>Шлях:</strong> ' + escHtml(data.tree_path || '') + '</p>' +
+                '<p><strong>Теги:</strong> ' + escHtml((data.tags || []).join(', ')) + '</p>' +
+                '<hr style="border-color:var(--bg-card-border);margin:.75rem 0;">' +
+                '<div>' + escHtml(data.body || '') + '</div>';
+        }
+    })
+    .catch(function() {
+        showMsg('previewStatus', 'Помилка мережі', true);
+        resultDiv.style.display = 'none';
+    })
+    .finally(function() { btn.disabled = false; });
+}
+
+// ---- Helpers ----
+function showMsg(id, text, isError) {
+    var el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'msg ' + (isError ? 'msg-error' : 'msg-success');
+    el.style.display = 'inline-block';
+}
+
+function hideMsg(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+function escHtml(str) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+</script>
+</body>
+</html>

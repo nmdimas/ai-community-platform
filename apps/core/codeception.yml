@@ -1,0 +1,36 @@
+paths:
+    tests: tests
+    output: tests/_output
+    data: tests/_data
+    support: tests/_support
+
+bootstrap: bootstrap.php
+actor_suffix: Tester
+
+extensions:
+    enabled:
+        - Codeception\Extension\RunFailed
+
+suites:
+    Unit:
+        path: Unit
+        actor: UnitTester
+        modules:
+            enabled:
+                - Asserts
+                - \Helper\Unit
+
+    Functional:
+        path: Functional
+        actor: FunctionalTester
+        modules:
+            enabled:
+                - Symfony:
+                    app_path: '.'
+                    environment: 'test'
+                    follow_redirects: false
+                - REST:
+                    depends: Symfony
+                    url: /
+                - Asserts
+                - \Helper\Functional

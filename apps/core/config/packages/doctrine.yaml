@@ -1,0 +1,11 @@
+doctrine:
+    dbal:
+        default_connection: default
+        connections:
+            default:
+                url: '%env(DATABASE_URL)%'
+                driver: pdo_pgsql
+                profiling_collect_backtrace: '%kernel.debug%'
+            provisioner:
+                url: '%env(POSTGRES_PROVISIONER_URL)%'
+                driver: pdo_pgsql

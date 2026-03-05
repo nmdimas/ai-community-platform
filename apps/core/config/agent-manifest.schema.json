@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agent-manifest",
+  "title": "Agent Manifest",
+  "description": "Schema for platform agent manifest.json",
+  "type": "object",
+  "required": ["name", "version", "description", "permissions", "commands", "events", "a2a_endpoint"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Unique agent identifier, kebab-case slug"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Agent semver version"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-readable purpose shown in admin UI"
+    },
+    "permissions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Minimum roles allowed to trigger this agent"
+    },
+    "commands": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Chat commands this agent handles"
+    },
+    "events": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Platform event types this agent subscribes to"
+    },
+    "a2a_endpoint": {
+      "type": "string",
+      "format": "uri",
+      "description": "Internal A2A request target URL"
+    },
+    "config_schema": {
+      "type": "object",
+      "description": "JSON Schema for runtime config rendered in admin UI"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Named A2A intents this agent exposes"
+    },
+    "capability_schemas": {
+      "type": "object",
+      "description": "Per-capability input schemas keyed by capability name"
+    },
+    "admin_url": {
+      "type": "string",
+      "description": "Deep link to agent's own admin page"
+    },
+    "health_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Health check URL polled by platform"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+    "name": "ai-community-platform-e2e",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "test": "codeceptjs run --steps",
+        "test:grep": "codeceptjs run --steps --grep",
+        "test:headed": "HEADLESS=false codeceptjs run --steps",
+        "report": "playwright show-report output/playwright-report"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.40.0",
+        "codeceptjs": "^3.6.0",
+        "playwright": "^1.40.0"
+    }
+}

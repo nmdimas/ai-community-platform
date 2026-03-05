@@ -1,0 +1,26 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Статистика — Admin{% endblock %}
+{% block page_title %}Статистика{% endblock %}
+
+{% block content %}
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Всього агентів</div>
+            <div class="stat-value">{{ agents_total ?? '—' }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Активних агентів</div>
+            <div class="stat-value text-success">{{ agents_enabled ?? '—' }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Вимкнених агентів</div>
+            <div class="stat-value text-danger">{{ agents_disabled ?? '—' }}</div>
+        </div>
+    </div>
+
+    <div class="glass-card">
+        <h2>Ласкаво просимо, {{ username }}</h2>
+        <p>Це панель адміністрування AI Community Platform. Використовуйте навігацію зліва для управління системою.</p>
+    </div>
+{% endblock %}
