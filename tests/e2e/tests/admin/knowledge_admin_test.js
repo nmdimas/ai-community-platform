@@ -51,6 +51,7 @@ Scenario(
 
         // Switch out and verify wiki returns 503 (wiki is on knowledge-agent port 8083)
         await I.switchTo();
+        await I.ensureEdgeAccess('http://localhost:8083/wiki');
         I.amOnPage('http://localhost:8083/wiki');
         I.see('недоступна');
 

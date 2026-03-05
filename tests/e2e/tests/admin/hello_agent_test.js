@@ -70,6 +70,7 @@ Scenario(
 Scenario(
     'hello-agent webview renders greeting on port 8085',
     async ({ I }) => {
+        await I.ensureEdgeAccess('http://localhost:8085/');
         I.amOnPage('http://localhost:8085/');
         await I.waitForText('Hello, World!', 5);
         I.see('Hello, World!');
@@ -79,6 +80,14 @@ Scenario(
 Scenario(
     'hello-agent health endpoint returns ok via Traefik',
     async ({ I }) => {
+        const cookieName = process.env.EDGE_AUTH_COOKIE_NAME || 'ACP_EDGE_TOKEN';
+        await I.ensureEdgeAccess('http://localhost:8085/health');
+        const edgeCookie = await I.grabCookie(cookieName);
+        if (!edgeCookie || !edgeCookie.value) {
+            throw new Error(`Expected ${cookieName} cookie for health request`);
+        }
+        I.haveRequestHeaders({ Cookie: `${cookieName}=${edgeCookie.value}` });
+
         const response = await I.sendGetRequest(
             'http://localhost:8085/health',
         );
@@ -91,12 +100,24 @@ Scenario(
 Scenario(
     'hello-agent manifest is valid via Traefik',
     async ({ I }) => {
+        const cookieName = process.env.EDGE_AUTH_COOKIE_NAME || 'ACP_EDGE_TOKEN';
+        await I.ensureEdgeAccess('http://localhost:8085/api/v1/manifest');
+        const edgeCookie = await I.grabCookie(cookieName);
+        if (!edgeCookie || !edgeCookie.value) {
+            throw new Error(`Expected ${cookieName} cookie for manifest request`);
+        }
+        I.haveRequestHeaders({ Cookie: `${cookieName}=${edgeCookie.value}` });
+
         const response = await I.sendGetRequest(
             'http://localhost:8085/api/v1/manifest',
         );
         assert.strictEqual(response.status, 200);
         assert.strictEqual(response.data.name, 'hello-agent');
         assert.strictEqual(response.data.version, '1.0.0');
-        assert.deepStrictEqual(response.data.capabilities, []);
+        assert.ok(Array.isArray(response.data.capabilities), 'capabilities must be an array');
+        assert.ok(
+            response.data.capabilities.includes('hello.greet'),
+            'capabilities must contain hello.greet',
+        );
     },
 ).tag('@smoke').tag('@hello');

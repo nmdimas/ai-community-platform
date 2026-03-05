@@ -23,6 +23,7 @@ exports.config = {
         I: './support/steps_file.js',
         loginPage: './support/pages/LoginPage.js',
         agentsPage: './support/pages/AgentsPage.js',
+        logsPage: './support/pages/LogsPage.js',
     },
     name: 'ai-community-platform-e2e',
 };
