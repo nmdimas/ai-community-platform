@@ -161,6 +161,7 @@ For this to pass, each agent **must**:
 - Return HTTP 200 on `GET /health`
 
 See [agent-requirements/conventions.md](agent-requirements/conventions.md) for full spec.
+See [agent-requirements/agent-state-model.md](agent-state-model.md) for badge semantics and operator hint contract.
 
 ---
 

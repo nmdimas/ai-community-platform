@@ -17,16 +17,41 @@ Every agent service SHALL register itself with the platform registry on startup 
 
 ---
 
+### Requirement: Manifest Processing State Tracking
+The registry SHALL track both the latest accepted manifest hash and the latest successfully processed manifest hash.
+
+#### Scenario: First registration requires processing
+- **WHEN** an agent is registered for the first time
+- **THEN** `manifest_hash` is stored, `last_processed_manifest_hash` is null, and `storage_sync_required` is set to true
+
+#### Scenario: Changed manifest requires re-processing
+- **WHEN** an existing agent registers with a different `manifest_hash`
+- **THEN** `storage_sync_required` is set to true until provisioning+migrations succeed for that new hash
+
+#### Scenario: Unchanged manifest does not force re-processing
+- **WHEN** an existing agent registers with the same `manifest_hash`
+- **THEN** `storage_sync_required` remains unchanged and no additional processing is enqueued automatically
+
+---
+
 ### Requirement: Agent Enable / Disable Lifecycle
 The platform registry SHALL support enabling and disabling individual agents; only enabled agents receive platform events and have their commands routed.
 
 #### Scenario: Admin enables agent
 - **WHEN** an admin calls `POST /api/v1/internal/agents/{name}/enable`
-- **THEN** the registry sets `enabled = true`, `enabled_at = now()`, `enabled_by = admin_user`, and invalidates the Redis registry cache
+- **THEN** the platform acquires per-agent lifecycle lock, runs provisioning (if required), always executes core-owned migrations, and only after successful completion sets `enabled = true`, `enabled_at = now()`, `enabled_by = admin_user`, and invalidates Redis cache
 
 #### Scenario: Admin disables agent
 - **WHEN** an admin calls `POST /api/v1/internal/agents/{name}/disable`
 - **THEN** the registry sets `enabled = false`, `disabled_at = now()`, and invalidates the Redis registry cache
+
+#### Scenario: Enable fails on migration error
+- **WHEN** migration command fails during enable flow
+- **THEN** the registry keeps `enabled = false`, sets lifecycle state to `failed_migration`, records `last_migration_status = failed` with error details, and returns a failure response to admin
+
+#### Scenario: Enable success marks manifest as processed
+- **WHEN** provisioning+migrations succeed during enable
+- **THEN** the registry sets `last_processed_manifest_hash = manifest_hash`, clears `storage_sync_required`, sets lifecycle state to `enabled`, and records `last_migration_status = success`
 
 #### Scenario: Disabled agent receives no events
 - **WHEN** a `message.created` event is dispatched and an agent is disabled
@@ -35,6 +60,75 @@ The platform registry SHALL support enabling and disabling individual agents; on
 #### Scenario: Disabled agent commands not routed
 - **WHEN** a user issues a command belonging to a disabled agent
 - **THEN** the Command Router returns a graceful "Команда недоступна" message and does not call the agent
+
+---
+
+### Requirement: Lifecycle State Machine
+The registry SHALL expose explicit lifecycle states for each agent and only allow valid transitions.
+
+#### Scenario: Enable flow transitions through processing states
+- **WHEN** enable starts for an agent with pending storage sync
+- **THEN** lifecycle transitions `registered -> provisioning -> migration_pending -> migrating -> enabled` on success
+
+#### Scenario: Provisioning failure uses dedicated state
+- **WHEN** provisioning fails before migration starts
+- **THEN** lifecycle state is set to `failed_provisioning` and retry metadata is incremented
+
+#### Scenario: Migration failure uses dedicated state
+- **WHEN** migration command fails
+- **THEN** lifecycle state is set to `failed_migration` and retry metadata is incremented
+
+---
+
+### Requirement: Core-Owned Migration Execution
+DDL migrations for agent services SHALL be executed only by the core lifecycle orchestrator (enable/reconcile flows).
+
+#### Scenario: Agent startup does not perform DDL
+- **WHEN** an agent container starts
+- **THEN** it may report schema status but MUST NOT execute migration DDL commands autonomously
+
+#### Scenario: Reconcile flow re-runs core migration contract
+- **WHEN** reconcile retries a failed or pending lifecycle state
+- **THEN** migration runs through the same core-owned runner and lock semantics as manual enable
+
+---
+
+### Requirement: Per-Agent Lifecycle Locking
+The platform SHALL serialize lifecycle operations per agent using a distributed lock.
+
+#### Scenario: Concurrent enable requests are serialized
+- **WHEN** two enable requests for the same agent arrive concurrently
+- **THEN** one flow acquires the lock and the other receives a busy/retryable response without running provisioning or migrations
+
+#### Scenario: Different agents can process in parallel
+- **WHEN** enable/reconcile runs target different agent names
+- **THEN** each flow can proceed independently because locks are scoped per agent
+
+---
+
+### Requirement: Reconcile Loop for Eventual Consistency
+The platform SHALL run a periodic reconcile loop that retries pending/failed lifecycle states with bounded backoff.
+
+#### Scenario: Interrupted run is recovered
+- **WHEN** core crashes mid-lifecycle after setting a processing state
+- **THEN** the reconcile loop detects the stale state and resumes/retries safely under lock
+
+#### Scenario: Max retries stop infinite loops
+- **WHEN** lifecycle retries reach configured maximum attempts
+- **THEN** agent remains in failed state and is surfaced for manual operator action
+
+---
+
+### Requirement: Lifecycle Execution Logging
+The platform SHALL persist step-level lifecycle execution records for observability and audit.
+
+#### Scenario: Successful run logs all steps
+- **WHEN** an enable operation succeeds
+- **THEN** `agent_lifecycle_runs` contains entries for lock/provision/migrate/finalize with duration and `status=success`
+
+#### Scenario: Failed run logs actionable error
+- **WHEN** provisioning or migration fails
+- **THEN** `agent_lifecycle_runs` stores failed step, error details, actor, and manifest hash for debugging
 
 ---
 

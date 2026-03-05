@@ -36,6 +36,11 @@ Agent-facing memory index for `AI Community Platform`. Always load this file fir
 
 - `docs/decisions/adr_0002_openclaw_role.md` — ADR for the OpenClaw positioning decision
 
+## Features
+
+- `docs/features/README.md` — feature documentation index
+- `docs/features/litellm.md` — LiteLLM gateway, credentials, and operational checks
+
 ## Delivery Plans
 
 - `docs/plans/platform-mvp-development-plan.md` — overall platform delivery plan
@@ -57,7 +62,7 @@ Agent-facing memory index for `AI Community Platform`. Always load this file fir
 
 ## Local Runtime
 
-- `LOCAL_DEV.md` — local Docker Compose development environment
+- `docs/local-dev.md` — local Docker Compose development environment (includes OpenClaw + Telegram setup)
 
 ## Recommended Build Order
 

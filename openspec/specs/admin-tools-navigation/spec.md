@@ -17,3 +17,9 @@ The admin UI SHALL provide a visible navigation link/button to Langfuse.
 - **WHEN** an admin clicks the Langfuse link in the `Інструменти` section
 - **THEN** the browser SHALL open the configured Langfuse URL
 
+### Requirement: LiteLLM Navigation from Admin
+The admin UI SHALL provide a visible navigation link/button to LiteLLM.
+
+#### Scenario: Admin navigates to LiteLLM tool
+- **WHEN** an admin clicks the LiteLLM link in the `Інструменти` section
+- **THEN** the browser SHALL open the configured LiteLLM URL

@@ -34,7 +34,6 @@
 | `add-knowledge-base-agent` | 46/79 | Висока | Залишити активним; пріоритет на стабілізацію API/worker/docs перед roadmap-фічами |
 | `add-knowledge-base-agent-roadmap` | 0/20 | Середня | Тримати як backlog після завершення базового knowledge-agent |
 | `add-ai-news-maker-agent` | 0/42 | Середня/низька | Потребує рескоупу під MVP (зараз занадто широкий і частково конфліктує з поточними MVP-обмеженнями) |
-| `add-telegram-bot-integration` | 0/5 | Середня | Частково вже покрито `docs/local-dev.md` і `docs/plans/telegram-openclaw-integration-plan.md`; варто оновити tasks або змерджити з discovery/OpenClaw потоком |
 | `refactor-agent-discovery` | 0/43 | Низька (частково superseded) | Багато пунктів вже реалізовано іншим потоком; рекомендується окремий cleanup-change для закриття дублювань |
 
 ## Relevance Notes (Docs-Based)
@@ -43,9 +42,7 @@
    - є `agent:discovery`, `AgentConventionVerifier`, `make conventions-test`, `docs/agent-requirements/*`;
    - тому статус `0/43` не відображає реальний стан і виглядає застарілим.
 
-2. `add-telegram-bot-integration` документно частково закритий:
-   - у `docs/local-dev.md` вже є BotFather/polling/pairing workflow;
-   - у `docs/plans/telegram-openclaw-integration-plan.md` уже описаний webhook/polling контур.
+2. `add-telegram-bot-integration` видалено з активних proposals як дубль уже інтегрованого функціоналу та документації.
 
 3. `add-knowledge-base-agent` залишається стратегічно актуальним:
    - відповідає `docs/product/ua/platform-mvp-prd.md` та архітектурним матеріалам;

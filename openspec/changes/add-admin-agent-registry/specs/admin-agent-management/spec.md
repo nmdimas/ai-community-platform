@@ -18,7 +18,7 @@ The admin agent list SHALL include a toggle control per agent that enables or di
 
 #### Scenario: Admin enables agent from list
 - **WHEN** admin clicks the enable toggle for a disabled agent and confirms
-- **THEN** the toggle updates to "Увімкнено", a success notification appears, and the agent begins receiving events
+- **THEN** the platform first runs provisioning/migrations; after success the toggle updates to "Увімкнено", a success notification appears, and the agent begins receiving events
 
 #### Scenario: Admin disables agent from list
 - **WHEN** admin clicks the disable toggle for an enabled agent and confirms
@@ -27,6 +27,49 @@ The admin agent list SHALL include a toggle control per agent that enables or di
 #### Scenario: Toggle requires confirmation
 - **WHEN** admin clicks a toggle
 - **THEN** a confirmation dialog appears before the state change is applied, preventing accidental toggling
+
+#### Scenario: Enable action shows migration failure
+- **WHEN** provisioning or migration fails during enable
+- **THEN** the UI keeps the agent in disabled state and shows the actionable error returned by the platform
+
+---
+
+### Requirement: Migration and Provisioning Status Visibility
+The admin panel SHALL surface migration/provisioning lifecycle state per agent so operators can understand why an agent cannot be enabled yet.
+
+#### Scenario: Agent pending processing is visible
+- **WHEN** `storage_sync_required = true`
+- **THEN** the row shows a "Pending sync" indicator with tooltip explaining that provisioning/migrations are required
+
+#### Scenario: Last migration failure visible
+- **WHEN** `last_migration_status = failed`
+- **THEN** the row shows failure badge/details and provides a retry path via the enable action
+
+---
+
+### Requirement: Lifecycle Step Timeline
+The admin panel SHALL show a step timeline for the latest lifecycle run per agent.
+
+#### Scenario: Timeline displays successful sequence
+- **WHEN** an enable/reconcile run succeeds
+- **THEN** admin sees ordered steps (`lock`, `provision`, `migrate`, `finalize`) with statuses and durations
+
+#### Scenario: Timeline highlights failed step
+- **WHEN** lifecycle run fails
+- **THEN** admin sees the failed step with error message and retry guidance
+
+---
+
+### Requirement: Enable Dry-Run Preview
+The admin panel SHALL support a dry-run preview action before actual enable.
+
+#### Scenario: Dry-run shows planned steps
+- **WHEN** admin clicks dry-run for an agent
+- **THEN** UI displays whether provisioning is needed, migration command to run, expected skips, and current blockers
+
+#### Scenario: Lock contention shown as retryable state
+- **WHEN** dry-run or enable detects lifecycle lock held by another run
+- **THEN** UI shows a non-fatal "operation in progress" message with retry instruction
 
 ---
 

@@ -152,7 +152,21 @@ Admins can click a badge to view the full violation list.
 
 ---
 
-## 6. Adding a New Agent — Checklist
+## 6. State Model In Admin UI
+
+Admin state rendering (runtime `enabled/disabled` + health/convention states) is defined in:
+
+- `docs/agent-requirements/agent-state-model.md`
+
+This state model is a contract for:
+
+- operator-facing hint text,
+- badge semantics,
+- and stable selectors used by automated tests.
+
+---
+
+## 7. Adding a New Agent — Checklist
 
 1. Add service to `compose.yaml` with name ending `-agent` and label `ai.platform.agent=true`
 2. Implement `GET /api/v1/manifest` returning valid JSON
