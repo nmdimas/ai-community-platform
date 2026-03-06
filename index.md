@@ -4,26 +4,26 @@ Agent-facing memory index for `AI Community Platform`. Always load this file fir
 
 ## Product
 
-- `docs/product/ua/brainstorm.md` — raw brainstorming and first product framing
-- `docs/product/ua/platform-mvp-prd.md` — PRD for the platform MVP
-- `docs/product/ua/architecture-overview.md` — baseline architecture, modularity model, and MVP boundaries
-- `docs/product/ua/core-agent-openclaw.md` — OpenClaw as a runtime for the core-agent, not the core-platform
+- `docs/product/en/brainstorm.md` — raw brainstorming and first product framing
+- `docs/product/en/platform-mvp-prd.md` — PRD for the platform MVP
+- `docs/product/en/architecture-overview.md` — baseline architecture, modularity model, and MVP boundaries
+- `docs/product/en/core-agent-openclaw.md` — OpenClaw as a runtime for the core-agent, not the core-platform
 
 ## Interface Specs
 
-- `docs/specs/ua/README.md` — index of interface and protocol specifications
-- `docs/specs/ua/web-requirements.md` — requirements for the public web layer
-- `docs/specs/ua/admin-requirements.md` — requirements for the admin layer
-- `docs/specs/ua/api-protocol.md` — API contract and mandatory OpenAPI documentation
-- `docs/specs/ua/a2a-protocol.md` — internal agent-to-agent protocol
+- `docs/specs/en/README.md` — index of interface and protocol specifications
+- `docs/specs/en/web-requirements.md` — requirements for the public web layer
+- `docs/specs/en/admin-requirements.md` — requirements for the admin layer
+- `docs/specs/en/api-protocol.md` — API contract and mandatory OpenAPI documentation
+- `docs/specs/en/a2a-protocol.md` — internal agent-to-agent protocol
 
 ## Agent PRDs
 
-- `docs/agents/ua/hello-agent.md` — Hello Agent
-- `docs/agents/ua/knowledge-extractor-prd.md` — PRD for Community Wiki / Knowledge Extractor
-- `docs/agents/ua/locations-catalog-prd.md` — PRD for the locations, services, and trusted contacts catalog
-- `docs/agents/ua/news-digest-prd.md` — PRD for News Digest
-- `docs/agents/ua/anti-fraud-signals-prd.md` — PRD for Anti-fraud Signals
+- `docs/agents/en/hello-agent.md` — Hello Agent
+- `docs/agents/en/knowledge-extractor-prd.md` — PRD for Community Wiki / Knowledge Extractor
+- `docs/agents/en/locations-catalog-prd.md` — PRD for the locations, services, and trusted contacts catalog
+- `docs/agents/en/news-digest-prd.md` — PRD for News Digest
+- `docs/agents/en/anti-fraud-signals-prd.md` — PRD for Anti-fraud Signals
 
 ## Agent Requirements
 
