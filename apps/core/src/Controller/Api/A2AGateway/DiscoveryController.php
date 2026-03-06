@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Controller\Api\OpenClaw;
+namespace App\Controller\Api\A2AGateway;
 
-use App\AgentDiscovery\DiscoveryBuilder;
+use App\A2AGateway\DiscoveryBuilder;
 use App\Logging\PayloadSanitizer;
 use App\Logging\TraceEvent;
 use Psr\Cache\CacheItemPoolInterface;

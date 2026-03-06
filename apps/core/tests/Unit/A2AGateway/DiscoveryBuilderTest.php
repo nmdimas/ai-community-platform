@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\AgentDiscovery;
+namespace App\Tests\Unit\A2AGateway;
 
-use App\AgentDiscovery\DiscoveryBuilder;
+use App\A2AGateway\DiscoveryBuilder;
 use App\AgentRegistry\AgentRegistryInterface;
 use Codeception\Test\Unit;
 use PHPUnit\Framework\MockObject\MockObject;

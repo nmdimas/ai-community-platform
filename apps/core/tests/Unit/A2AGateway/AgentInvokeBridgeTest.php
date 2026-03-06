@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\AgentDiscovery;
+namespace App\Tests\Unit\A2AGateway;
 
-use App\AgentDiscovery\AgentInvokeBridge;
+use App\A2AGateway\AgentInvokeBridge;
 use App\AgentRegistry\AgentRegistryInterface;
 use App\Logging\PayloadSanitizer;
 use App\Observability\LangfuseIngestionClient;
