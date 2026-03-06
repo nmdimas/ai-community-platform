@@ -33,16 +33,21 @@ Checks for agents built with PHP 8.5 + Symfony 7.
 | T-09 | Makefile has analyse target | Grep Makefile for `<agent>-analyse` or `analyse:` | Found | — | Missing |
 | T-10 | Makefile has cs-check target | Grep Makefile for `<agent>-cs-check` or `cs-check:` | Found | — | Missing |
 
-## C: Configuration (agents only — skip for core)
+## C: Configuration & Agent Card (agents only — skip for core)
 
 | ID | Check | How to Verify | PASS | WARN | FAIL |
 |----|-------|---------------|------|------|------|
 | C-01 | Manifest controller exists | Grep src/ for `'/api/v1/manifest'` | Found | — | Missing |
-| C-02 | Manifest returns required fields | Read ManifestController, check for `name`, `version`, `capabilities` | All present | Missing optional | Missing required |
-| C-03 | Compose label `ai.platform.agent=true` | Grep compose.yaml | Found | — | Missing |
-| C-04 | `config/reference.php` exists | Glob | Exists | — | Missing |
-| C-05 | Environment variables documented | `.env` or `.env.dev` exists with content | Exists | Empty | Missing |
-| C-06 | `services.yaml` exists | Glob `apps/<agent>/config/services.yaml` | Exists | — | Missing |
+| C-02 | Agent Card has required fields | Read ManifestController, check for `name`, `version` | Both present | — | Missing required |
+| C-03 | Agent Card has `url` field | Check manifest response for `url` (valid URL) | Present | Only deprecated `a2a_endpoint` | Neither |
+| C-04 | Agent Card has structured skills | Check `skills` array contains AgentSkill objects `{id, name, description}` | Structured objects | Legacy string array | No skills |
+| C-05 | Agent Card has `capabilities` | Check for `capabilities` object `{streaming, pushNotifications}` | Present | — | Missing |
+| C-06 | Agent Card has `provider` | Check for `provider` object `{organization, url}` | Present | — | Missing |
+| C-07 | Agent Card has I/O modes | Check for `defaultInputModes`, `defaultOutputModes` arrays | Both present | One only | Neither |
+| C-08 | Compose label `ai.platform.agent=true` | Grep compose.yaml | Found | — | Missing |
+| C-09 | `config/reference.php` exists | Glob | Exists | — | Missing |
+| C-10 | Environment variables documented | `.env` or `.env.dev` exists with content | Exists | Empty | Missing |
+| C-11 | `services.yaml` exists | Glob `apps/<agent>/config/services.yaml` | Exists | — | Missing |
 
 ## X: Security
 

@@ -27,15 +27,20 @@ Checks for agents built with Python + FastAPI.
 | T-04 | httpx in requirements | Grep for `httpx` (FastAPI test client) | Found | — | Missing |
 | T-05 | Makefile has test target | Grep Makefile for `<agent>-test` | Found | — | Missing |
 
-## C: Configuration (agents only)
+## C: Configuration & Agent Card (agents only)
 
 | ID | Check | How to Verify | PASS | WARN | FAIL |
 |----|-------|---------------|------|------|------|
 | C-01 | Manifest route exists | Grep app/ for `"/api/v1/manifest"` | Found | — | Missing |
-| C-02 | Manifest returns required fields | Read manifest route, check name/version/capabilities | All present | Missing optional | Missing required |
-| C-03 | Compose label `ai.platform.agent=true` | Grep compose.yaml | Found | — | Missing |
-| C-04 | Config module exists | Glob `apps/<agent>/app/config.py` | Exists | — | Missing |
-| C-05 | Pydantic settings for config | Grep for `BaseSettings` or `pydantic-settings` | Found | — | Not found |
+| C-02 | Agent Card has required fields | Read manifest route, check for `name`, `version` | Both present | — | Missing required |
+| C-03 | Agent Card has `url` field | Check manifest response for `url` (valid URL) | Present | Only deprecated `a2a_endpoint` | Neither |
+| C-04 | Agent Card has structured skills | Check `skills` array contains AgentSkill objects `{id, name, description}` | Structured objects | Legacy string array | No skills |
+| C-05 | Agent Card has `capabilities` | Check for `capabilities` object `{streaming, pushNotifications}` | Present | — | Missing |
+| C-06 | Agent Card has `provider` | Check for `provider` object `{organization, url}` | Present | — | Missing |
+| C-07 | Agent Card has I/O modes | Check for `defaultInputModes`, `defaultOutputModes` arrays | Both present | One only | Neither |
+| C-08 | Compose label `ai.platform.agent=true` | Grep compose.yaml | Found | — | Missing |
+| C-09 | Config module exists | Glob `apps/<agent>/app/config.py` | Exists | — | Missing |
+| C-10 | Pydantic settings for config | Grep for `BaseSettings` or `pydantic-settings` | Found | — | Not found |
 
 ## X: Security
 
