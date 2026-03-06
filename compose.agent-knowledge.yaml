@@ -19,6 +19,11 @@ services:
       RABBITMQ_URL: amqp://app:app@rabbitmq:5672
       APP_INTERNAL_TOKEN: dev-internal-token
       PLATFORM_CORE_URL: http://core
+      LANGFUSE_ENABLED: "0"
+      LANGFUSE_BASE_URL: http://langfuse-web:3000
+      LANGFUSE_PUBLIC_KEY: lf_pk_local_dev
+      LANGFUSE_SECRET_KEY: lf_sk_local_dev
+      LANGFUSE_ENV: local
     volumes:
       - ./apps/knowledge-agent:/var/www/html
     depends_on:

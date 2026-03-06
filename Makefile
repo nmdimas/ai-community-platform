@@ -11,7 +11,7 @@ COMPOSE ?= docker compose $(COMPOSE_FILES)
         install migrate test analyse cs-check cs-fix e2e e2e-smoke \
         knowledge-install knowledge-migrate knowledge-test knowledge-analyse knowledge-cs-check knowledge-cs-fix \
         hello-install hello-test hello-analyse hello-cs-check hello-cs-fix \
-        news-install news-migrate news-test agent-discover conventions-test \
+        news-install news-migrate news-test news-analyse news-cs-check news-cs-fix agent-discover conventions-test \
         sync-skills
 
 help:
@@ -41,6 +41,9 @@ help:
 		'make hello-cs-check        Check code style for hello-agent with PHP CS Fixer (stack must be up)' \
 		'make hello-cs-fix          Fix code style for hello-agent with PHP CS Fixer (stack must be up)' \
 		'make news-test            Run pytest suites for news-maker-agent (stack must be up)' \
+		'make news-analyse         Run ruff check for news-maker-agent (stack must be up)' \
+		'make news-cs-check        Run ruff format check for news-maker-agent (stack must be up)' \
+		'make news-cs-fix          Run ruff format fix for news-maker-agent (stack must be up)' \
 		'make analyse              Run PHPStan static analysis for core (stack must be up)' \
 		'make knowledge-analyse    Run PHPStan static analysis for knowledge-agent (stack must be up)' \
 		'make cs-check             Check code style for core with PHP CS Fixer (stack must be up)' \
@@ -160,6 +163,15 @@ hello-test:
 
 news-test:
 	$(COMPOSE) exec news-maker-agent python -m pytest tests/ -v
+
+news-analyse:
+	$(COMPOSE) exec news-maker-agent ruff check app/ tests/
+
+news-cs-check:
+	$(COMPOSE) exec news-maker-agent ruff format --check app/ tests/
+
+news-cs-fix:
+	$(COMPOSE) exec news-maker-agent ruff format app/ tests/
 
 analyse:
 	$(COMPOSE) exec core ./vendor/bin/phpstan analyse

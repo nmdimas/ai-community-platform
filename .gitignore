@@ -37,10 +37,16 @@ docker/openclaw/.env
 !.claude/commands/
 .agent/
 
+# Neuron AI examples (local only, few people need this)
+docs/neuron-ai/examples/*
+!docs/neuron-ai/examples/composer.json
+!docs/neuron-ai/examples/index.md
+
 # Test artifacts
 coverage/
 .phpunit.cache/
 .phpunit.result.cache
-tests/_output/
+**/tests/_output/
 tests/_generated/
+tests/e2e/output/
 .php-cs-fixer.cache
