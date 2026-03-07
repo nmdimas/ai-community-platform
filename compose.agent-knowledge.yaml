@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: docker/knowledge-agent/Dockerfile
-    labels:
+    labels: # Some comment to trigger ci
       - traefik.enable=true
       - traefik.http.routers.knowledge-agent.rule=PathPrefix(`/`)
       - traefik.http.routers.knowledge-agent.entrypoints=knowledge
