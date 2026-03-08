@@ -14,7 +14,6 @@ final class PipelineAdminController extends AbstractController
 {
     public function __construct(
         private readonly PipelineRunRepository $repository,
-        private readonly string $internalToken,
         private readonly string $adminPublicUrl,
     ) {
     }
@@ -23,7 +22,8 @@ final class PipelineAdminController extends AbstractController
     public function index(Request $request): Response
     {
         $statusFilter = $request->query->get('status');
-        $statusFilter = \is_string($statusFilter) && '' !== $statusFilter ? $statusFilter : null;
+        $allowedStatuses = ['completed', 'failed'];
+        $statusFilter = \is_string($statusFilter) && \in_array($statusFilter, $allowedStatuses, true) ? $statusFilter : null;
 
         $runs = $this->repository->findRecent(50, null, $statusFilter);
         $stats = $this->repository->getStats(7);
@@ -45,7 +45,6 @@ final class PipelineAdminController extends AbstractController
             'runs' => $runs,
             'stats' => $stats,
             'status_filter' => $statusFilter,
-            'internal_token' => $this->internalToken,
             'admin_public_url' => $this->adminPublicUrl,
         ]);
     }

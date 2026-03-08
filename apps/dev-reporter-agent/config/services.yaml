@@ -22,8 +22,11 @@ services:
 
     App\Controller\Admin\PipelineAdminController:
         arguments:
-            $internalToken: '%app.internal_token%'
             $adminPublicUrl: '%app.admin_public_url%'
+
+    App\Controller\Api\A2AController:
+        arguments:
+            $internalToken: '%app.internal_token%'
 
     App\Controller\Api\ManifestController:
         arguments:

@@ -68,7 +68,8 @@ final class PipelineRunRepository
         $params = [];
 
         if (null !== $days && $days > 0) {
-            $conditions[] = 'created_at >= now() - INTERVAL \''.$days.' days\'';
+            $conditions[] = 'created_at >= now() - make_interval(days => :days)';
+            $params['days'] = $days;
         }
 
         if (null !== $statusFilter && '' !== $statusFilter) {
@@ -102,7 +103,8 @@ final class PipelineRunRepository
         $params = [];
 
         if (null !== $days && $days > 0) {
-            $where = 'WHERE created_at >= now() - INTERVAL \''.$days.' days\'';
+            $where = 'WHERE created_at >= now() - make_interval(days => :days)';
+            $params['days'] = $days;
         }
 
         /** @var array{total: string, passed: string, failed: string, avg_duration: string}|false $row */

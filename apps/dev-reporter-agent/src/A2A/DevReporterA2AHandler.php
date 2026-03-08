@@ -134,9 +134,10 @@ final class DevReporterA2AHandler
      */
     private function handleStatus(array $payload, string $requestId, array $logCtx): array
     {
-        $limit = isset($payload['limit']) ? (int) $payload['limit'] : 10;
-        $days = isset($payload['days']) ? (int) $payload['days'] : null;
-        $statusFilter = isset($payload['status_filter']) && '' !== (string) $payload['status_filter']
+        $limit = isset($payload['limit']) ? min(max((int) $payload['limit'], 1), 100) : 10;
+        $days = isset($payload['days']) ? max((int) $payload['days'], 1) : null;
+        $allowedStatuses = ['completed', 'failed'];
+        $statusFilter = isset($payload['status_filter']) && \in_array((string) $payload['status_filter'], $allowedStatuses, true)
             ? (string) $payload['status_filter']
             : null;
 
@@ -244,7 +245,7 @@ final class DevReporterA2AHandler
     /**
      * @param array<string, mixed> $logCtx
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private function handleUnknown(string $intent, string $requestId, array $logCtx): array
     {
@@ -275,10 +276,10 @@ final class DevReporterA2AHandler
     private function sendTelegramNotification(array $payload, array $logCtx): void
     {
         $status = (string) ($payload['status'] ?? 'completed');
-        $task = (string) ($payload['task'] ?? '');
-        $branch = (string) ($payload['branch'] ?? '');
+        $task = $this->esc((string) ($payload['task'] ?? ''));
+        $branch = $this->esc((string) ($payload['branch'] ?? ''));
         $durationSeconds = (int) ($payload['duration_seconds'] ?? 0);
-        $failedAgent = isset($payload['failed_agent']) ? (string) $payload['failed_agent'] : null;
+        $failedAgent = isset($payload['failed_agent']) ? $this->esc((string) $payload['failed_agent']) : null;
 
         /** @var list<array{agent: string, status: string, duration: int}> $agentResults */
         $agentResults = isset($payload['agent_results']) && \is_array($payload['agent_results'])
@@ -301,7 +302,7 @@ final class DevReporterA2AHandler
         if ([] !== $agentResults) {
             $message .= "\n";
             foreach ($agentResults as $agentResult) {
-                $agentName = (string) ($agentResult['agent'] ?? '');
+                $agentName = $this->esc((string) ($agentResult['agent'] ?? ''));
                 $agentStatus = (string) ($agentResult['status'] ?? '');
                 $agentDuration = (int) ($agentResult['duration'] ?? 0);
                 $agentDurationMin = (int) round($agentDuration / 60);
@@ -315,6 +316,11 @@ final class DevReporterA2AHandler
         }
 
         $this->dispatchToOpenClaw($message, $logCtx);
+    }
+
+    private function esc(string $value): string
+    {
+        return htmlspecialchars($value, \ENT_QUOTES | \ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /**

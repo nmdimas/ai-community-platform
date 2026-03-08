@@ -26,6 +26,7 @@ suites:
                 - Symfony:
                     app_path: '.'
                     environment: 'test'
+                    follow_redirects: false
                 - REST:
                     url: /
                     depends: Symfony

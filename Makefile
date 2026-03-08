@@ -178,6 +178,7 @@ e2e-db-init:
 	@printf "SELECT 'CREATE DATABASE ai_community_platform_test' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'ai_community_platform_test')\\gexec\n" | $(COMPOSE) exec -T postgres psql -U app -d postgres
 	@printf "SELECT 'CREATE DATABASE knowledge_agent_test OWNER knowledge_agent' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'knowledge_agent_test')\\gexec\n" | $(COMPOSE) exec -T postgres psql -U app -d postgres
 	@printf "SELECT 'CREATE DATABASE news_maker_agent_test OWNER news_maker_agent' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'news_maker_agent_test')\\gexec\n" | $(COMPOSE) exec -T postgres psql -U app -d postgres
+	@printf "SELECT 'CREATE DATABASE dev_reporter_agent_test OWNER dev_reporter_agent' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'dev_reporter_agent_test')\\gexec\n" | $(COMPOSE) exec -T postgres psql -U app -d postgres
 
 e2e-rabbitmq-init:
 	$(COMPOSE) up -d rabbitmq
@@ -201,19 +202,25 @@ e2e-register-agents:
 		-H "X-Platform-Internal-Token: dev-internal-token" \
 		-d '{"name":"news-maker-agent","version":"0.1.0","description":"AI-powered news curation and publishing","url":"http://news-maker-agent-e2e:8000/api/v1/a2a","admin_url":"http://localhost:18084/admin/sources","skills":[{"id":"news.publish","name":"News Publish","description":"Publish curated news content"},{"id":"news.curate","name":"News Curate","description":"Curate and summarize news articles"}]}' \
 		&& echo "  registered news-maker-agent" || echo "  FAILED news-maker-agent"
+	@curl -sf -X POST http://localhost:18080/api/v1/internal/agents/register \
+		-H "Content-Type: application/json" \
+		-H "X-Platform-Internal-Token: dev-internal-token" \
+		-d '{"name":"dev-reporter-agent","version":"1.0.0","description":"Pipeline observability agent","url":"http://dev-reporter-agent-e2e/api/v1/a2a","admin_url":"http://localhost:18087/admin/pipeline","skills":[{"id":"devreporter.ingest","name":"Pipeline Ingest","description":"Ingest pipeline run reports"},{"id":"devreporter.status","name":"Pipeline Status","description":"Query pipeline run status"},{"id":"devreporter.notify","name":"Pipeline Notify","description":"Send notification messages"}]}' \
+		&& echo "  registered dev-reporter-agent" || echo "  FAILED dev-reporter-agent"
 	@$(E2E_COMPOSE) exec -T postgres psql -U app -d ai_community_platform_test -q \
-		-c "UPDATE agent_registry SET enabled = true, installed_at = now() WHERE name IN ('hello-agent', 'knowledge-agent', 'news-maker-agent')"
+		-c "UPDATE agent_registry SET enabled = true, installed_at = now() WHERE name IN ('hello-agent', 'knowledge-agent', 'news-maker-agent', 'dev-reporter-agent')"
 	@echo "E2E agents registered and enabled."
 
 e2e-prepare: e2e-db-init e2e-rabbitmq-init
-	$(E2E_COMPOSE) up -d --build core-e2e knowledge-agent-e2e knowledge-worker-e2e news-maker-agent-e2e hello-agent-e2e openclaw-gateway-e2e
+	$(E2E_COMPOSE) up -d --build core-e2e knowledge-agent-e2e knowledge-worker-e2e news-maker-agent-e2e hello-agent-e2e dev-reporter-agent-e2e openclaw-gateway-e2e
 	$(E2E_COMPOSE) exec -T core-e2e php bin/console doctrine:migrations:migrate --no-interaction
 	$(E2E_COMPOSE) exec -T knowledge-agent-e2e php bin/console doctrine:migrations:migrate --no-interaction
+	$(E2E_COMPOSE) exec -T dev-reporter-agent-e2e php bin/console doctrine:migrations:migrate --no-interaction
 	$(E2E_COMPOSE) exec -T news-maker-agent-e2e alembic upgrade head
 	@$(MAKE) e2e-register-agents
 
 e2e-cleanup:
-	$(E2E_COMPOSE) stop core-e2e knowledge-agent-e2e knowledge-worker-e2e news-maker-agent-e2e hello-agent-e2e openclaw-gateway-e2e 2>/dev/null || true
+	$(E2E_COMPOSE) stop core-e2e knowledge-agent-e2e knowledge-worker-e2e news-maker-agent-e2e hello-agent-e2e dev-reporter-agent-e2e openclaw-gateway-e2e 2>/dev/null || true
 
 migrate:
 	$(COMPOSE) exec core php bin/console doctrine:migrations:migrate --no-interaction
@@ -258,7 +265,7 @@ hello-analyse:
 	$(COMPOSE) exec hello-agent ./vendor/bin/phpstan analyse
 
 dev-reporter-analyse:
-	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/phpstan analyse --memory-limit=512M
+	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/phpstan analyse
 
 knowledge-analyse:
 	$(COMPOSE) exec knowledge-agent ./vendor/bin/phpstan analyse

@@ -3,8 +3,3 @@ doctrine:
         url: '%env(DATABASE_URL)%'
         driver: pdo_pgsql
         profiling_collect_backtrace: '%kernel.debug%'
-
-doctrine_migrations:
-    migrations_paths:
-        'App\Migrations': '%kernel.project_dir%/migrations'
-    enable_profiler: false

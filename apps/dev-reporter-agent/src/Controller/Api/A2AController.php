@@ -20,12 +20,18 @@ final class A2AController extends AbstractController
         private readonly DevReporterA2AHandler $handler,
         private readonly PayloadSanitizer $payloadSanitizer,
         private readonly LoggerInterface $logger,
+        private readonly string $internalToken,
     ) {
     }
 
     #[Route('/api/v1/a2a', name: 'api_a2a', methods: ['POST'])]
     public function __invoke(Request $request): JsonResponse
     {
+        $token = $request->headers->get('X-Platform-Internal-Token');
+        if ($token !== $this->internalToken) {
+            return $this->json(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
         /** @var array<string, mixed>|null $data */
         $data = json_decode($request->getContent(), true);
 
@@ -70,7 +76,31 @@ final class A2AController extends AbstractController
         );
 
         $start = microtime(true);
-        $result = $this->handler->handle($data);
+
+        try {
+            $result = $this->handler->handle($data);
+        } catch (\Throwable $e) {
+            $durationMs = (int) ((microtime(true) - $start) * 1000);
+            $this->logger->error(
+                'A2A handler exception',
+                TraceEvent::build('devreporter.a2a.inbound.exception', 'a2a_inbound', 'dev-reporter-agent', 'failed', [
+                    'target_app' => 'core',
+                    'intent' => $intent,
+                    'duration_ms' => $durationMs,
+                    'trace_id' => $traceId,
+                    'request_id' => $requestId,
+                    'error_code' => 'handler_exception',
+                    'error' => $e->getMessage(),
+                ]),
+            );
+
+            return $this->json([
+                'status' => 'failed',
+                'request_id' => $requestId,
+                'error' => 'Internal error',
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
         $durationMs = (int) ((microtime(true) - $start) * 1000);
 
         $sanitizedOutput = $this->payloadSanitizer->sanitize($result);
