@@ -18,9 +18,15 @@ def _run_crawl_pipeline() -> None:
     from app.services.rewriter import run_rewriting
 
     logger.info("Starting crawl pipeline")
-    run_crawl()
-    run_ranking()
-    run_rewriting()
+    crawled_items = run_crawl()
+    ranked_items = run_ranking()
+    rewritten_items = run_rewriting()
+    logger.info(
+        "Crawl pipeline finished: crawled=%d ranked_selected=%d rewritten_ready=%d",
+        crawled_items,
+        ranked_items,
+        rewritten_items,
+    )
 
 
 def _run_cleanup() -> None:
@@ -71,10 +77,12 @@ def stop_scheduler() -> None:
 def trigger_crawl_now() -> None:
     """Manually trigger crawl pipeline immediately."""
     import threading
-    threading.Thread(target=_run_crawl_pipeline, daemon=True).start()
+    threading.Thread(target=_run_crawl_pipeline, daemon=True, name="news-crawl-manual").start()
+    logger.info("Manual crawl trigger accepted")
 
 
 def trigger_cleanup_now() -> None:
     """Manually trigger cleanup immediately."""
     import threading
-    threading.Thread(target=_run_cleanup, daemon=True).start()
+    threading.Thread(target=_run_cleanup, daemon=True, name="news-cleanup-manual").start()
+    logger.info("Manual cleanup trigger accepted")

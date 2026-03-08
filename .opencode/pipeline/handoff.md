@@ -59,9 +59,17 @@
 
 ## Tester
 
-- **Status**: pending
-- **Test results**: —
-- **New tests written**: —
+- **Status**: done
+- **Test results**:
+  - `make dev-reporter-test` (final run): **passed** — 26 tests, 101 assertions (Unit: 17 passed; Functional: 9 passed)
+  - `conventions-test` equivalent for changed agent config: **passed** via `AGENT_URL=http://localhost:18087 npx codeceptjs run --steps` — 17 passed
+- **New tests written**: none
+- **Tests updated and why**:
+  - `apps/dev-reporter-agent/tests/Unit/A2A/DevReporterA2AHandlerTest.php` — replaced direct mock of final `PipelineRunRepository` with `Doctrine\\DBAL\\Connection` mock + real repository instance to avoid `ClassIsFinalException` and keep intent behavior assertions intact.
+  - `apps/dev-reporter-agent/public/.htaccess` — added Apache rewrite rules so HTTP convention checks (`/health`, `/api/v1/manifest`) resolve through Symfony front controller instead of Apache 404.
+- **Environment fixes applied for local stack testability** (no repo code contract changes):
+  - Created missing PostgreSQL role/database in running container: `dev_reporter_agent`, `dev_reporter_agent`, `dev_reporter_agent_test`
+  - Ran `make dev-reporter-migrate` to ensure `pipeline_runs` exists before functional suite
 
 ## Documenter
 
@@ -70,3 +78,4 @@
 
 ---
 - **Commit (coder)**: 8be54d9
+- **Commit (validator)**: e5d8f5f

@@ -51,18 +51,23 @@ PIPELINE_TIMEOUT_AUDITOR="${PIPELINE_TIMEOUT_AUDITOR:-1200}"       # 20 min
 MAX_RETRIES="${PIPELINE_MAX_RETRIES:-2}"
 RETRY_DELAY="${PIPELINE_RETRY_DELAY:-30}"
 
+# "cheap" virtual model — paid models under $1/1M tokens
+# Override via: PIPELINE_CHEAP_MODELS="model1,model2"
+CHEAP_MODELS="${PIPELINE_CHEAP_MODELS:-openrouter/deepseek-v3.2,openrouter/gemini-3.1-flash-lite}"
+
 # "free" virtual model — expands to a chain of free models
 # Override via: PIPELINE_FREE_MODELS="model1,model2,model3"
 FREE_MODELS="${PIPELINE_FREE_MODELS:-opencode/big-pickle,opencode/gpt-5-nano,opencode/minimax-m2.5-free}"
 
 # Fallback model chains (override via env: PIPELINE_FALLBACK_ARCHITECT="model1,model2")
+# Tiers: primary → paid fallback → cheap ($0.25-0.40/1M) → free
 # Use "free" as shorthand for the entire free models chain
-FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-anthropic/claude-sonnet-4-6,openai/gpt-5.3-codex,free}"
-FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openai/gpt-5.3-codex,anthropic/claude-opus-4-6,free}"
-FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,free}"
-FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,free}"
-FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-anthropic/claude-opus-4-6,free}"
-FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-anthropic/claude-sonnet-4-6,free}"
+FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-anthropic/claude-sonnet-4-6,openai/gpt-5.3-codex,cheap,free}"
+FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openai/gpt-5.3-codex,anthropic/claude-opus-4-6,cheap,free}"
+FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,cheap,free}"
+FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,cheap,free}"
+FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-anthropic/claude-opus-4-6,cheap,free}"
+FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-anthropic/claude-sonnet-4-6,cheap,free}"
 
 # ── Help ──────────────────────────────────────────────────────────────
 
@@ -96,12 +101,14 @@ Telegram (env vars):
   PIPELINE_TELEGRAM_BOT_TOKEN    Bot API token
   PIPELINE_TELEGRAM_CHAT_ID      Chat/group ID to post to
 
-Fallback models (env vars, comma-separated, "free" = free tier):
-  PIPELINE_FALLBACK_ARCHITECT    (default: sonnet,codex,free)
-  PIPELINE_FALLBACK_CODER        (default: codex,opus,free)
-  PIPELINE_FALLBACK_VALIDATOR    (default: sonnet,codex-mini,free)
-  PIPELINE_FALLBACK_TESTER       (default: sonnet,codex-mini,free)
-  PIPELINE_FALLBACK_DOCUMENTER   (default: opus,free)
+Fallback models (env vars, comma-separated):
+  Tiers: primary → paid → cheap (<$1/1M) → free
+  PIPELINE_FALLBACK_ARCHITECT    (default: sonnet,codex,cheap,free)
+  PIPELINE_FALLBACK_CODER        (default: codex,opus,cheap,free)
+  PIPELINE_FALLBACK_VALIDATOR    (default: sonnet,codex-mini,cheap,free)
+  PIPELINE_FALLBACK_TESTER       (default: sonnet,codex-mini,cheap,free)
+  PIPELINE_FALLBACK_DOCUMENTER   (default: opus,cheap,free)
+  PIPELINE_CHEAP_MODELS          (default: deepseek-v3.2,gemini-3.1-flash-lite)
   PIPELINE_FREE_MODELS           (default: big-pickle,gpt-5-nano,minimax-m2.5-free)
 
 Examples:
@@ -439,6 +446,11 @@ get_fallback_chain() {
   local agent="$1"
   local var_name="FALLBACK_$(echo "$agent" | tr '[:lower:]' '[:upper:]')"
   local chain="${!var_name:-}"
+
+  # Expand "cheap" placeholder into cheap models chain
+  if [[ -n "$chain" && "$chain" == *"cheap"* ]]; then
+    chain=$(echo "$chain" | sed "s|cheap|${CHEAP_MODELS}|g")
+  fi
 
   # Expand "free" placeholder into the actual free models chain
   if [[ -n "$chain" && "$chain" == *"free"* ]]; then

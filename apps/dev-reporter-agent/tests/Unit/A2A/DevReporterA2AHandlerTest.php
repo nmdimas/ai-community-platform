@@ -8,19 +8,22 @@ use App\A2A\DevReporterA2AHandler;
 use App\Logging\PayloadSanitizer;
 use App\Repository\PipelineRunRepository;
 use Codeception\Test\Unit;
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\MockObject\MockObject;
 use Psr\Log\LoggerInterface;
 
 final class DevReporterA2AHandlerTest extends Unit
 {
     private LoggerInterface&MockObject $logger;
-    private PipelineRunRepository&MockObject $repository;
+    private Connection&MockObject $connection;
+    private PipelineRunRepository $repository;
     private PayloadSanitizer $payloadSanitizer;
 
     protected function setUp(): void
     {
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->repository = $this->createMock(PipelineRunRepository::class);
+        $this->connection = $this->createMock(Connection::class);
+        $this->repository = new PipelineRunRepository($this->connection);
         $this->payloadSanitizer = new PayloadSanitizer();
     }
 
@@ -36,8 +39,8 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testIngestStoresRunAndReturnsRunId(): void
     {
-        $this->repository->expects($this->once())
-            ->method('insert')
+        $this->connection->expects($this->once())
+            ->method('fetchOne')
             ->willReturn(42);
 
         $handler = $this->makeHandler();
@@ -61,7 +64,7 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testIngestWithMissingTaskReturnsFailed(): void
     {
-        $this->repository->expects($this->never())->method('insert');
+        $this->connection->expects($this->never())->method('fetchOne');
 
         $handler = $this->makeHandler();
         $result = $handler->handle([
@@ -77,7 +80,7 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testIngestWithMissingStatusReturnsFailed(): void
     {
-        $this->repository->expects($this->never())->method('insert');
+        $this->connection->expects($this->never())->method('fetchOne');
 
         $handler = $this->makeHandler();
         $result = $handler->handle([
@@ -93,8 +96,8 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testIngestDbFailureReturnsFailed(): void
     {
-        $this->repository->expects($this->once())
-            ->method('insert')
+        $this->connection->expects($this->once())
+            ->method('fetchOne')
             ->willThrowException(new \RuntimeException('DB error'));
 
         $handler = $this->makeHandler();
@@ -111,15 +114,18 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testStatusReturnsRunsAndStats(): void
     {
-        $this->repository->expects($this->once())
-            ->method('findRecent')
-            ->with(10, null, null)
+        $this->connection->expects($this->once())
+            ->method('fetchAllAssociative')
+            ->with(
+                $this->stringContains('FROM pipeline_runs'),
+                $this->callback(static fn (array $params): bool => 10 === $params['limit']),
+            )
             ->willReturn([
                 ['id' => 1, 'task' => 'Task A', 'status' => 'completed'],
             ]);
 
-        $this->repository->expects($this->once())
-            ->method('getStats')
+        $this->connection->expects($this->once())
+            ->method('fetchAssociative')
             ->willReturn(['total' => 1, 'passed' => 1, 'failed' => 0, 'pass_rate' => 100.0, 'avg_duration' => 2700.0]);
 
         $handler = $this->makeHandler();
@@ -136,14 +142,17 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testStatusWithFiltersPassesThemToRepository(): void
     {
-        $this->repository->expects($this->once())
-            ->method('findRecent')
-            ->with(5, 7, 'failed')
+        $this->connection->expects($this->once())
+            ->method('fetchAllAssociative')
+            ->with(
+                $this->stringContains("INTERVAL '7 days'"),
+                $this->callback(static fn (array $params): bool => 5 === $params['limit'] && 'failed' === $params['status']),
+            )
             ->willReturn([]);
 
-        $this->repository->expects($this->once())
-            ->method('getStats')
-            ->with(7)
+        $this->connection->expects($this->once())
+            ->method('fetchAssociative')
+            ->with($this->stringContains("INTERVAL '7 days'"), [])
             ->willReturn(['total' => 0, 'passed' => 0, 'failed' => 0, 'pass_rate' => 0.0, 'avg_duration' => 0.0]);
 
         $handler = $this->makeHandler();
@@ -199,7 +208,7 @@ final class DevReporterA2AHandlerTest extends Unit
 
     public function testIngestPreservesRequestId(): void
     {
-        $this->repository->method('insert')->willReturn(1);
+        $this->connection->method('fetchOne')->willReturn(1);
 
         $handler = $this->makeHandler();
         $result = $handler->handle([
