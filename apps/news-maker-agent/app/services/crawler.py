@@ -1,13 +1,15 @@
 """Crawler adapter: fetches source pages and extracts article candidates."""
 import hashlib
+import html
 import logging
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
+from urllib.parse import urljoin, urlparse
 
 import requests
 import trafilatura
 
-from app.config import settings
 from app.database import SessionLocal
 from app.models.models import AgentSettings, NewsSource, RawNewsItem, SchedulerRun
 
@@ -15,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 CRAWL_TIMEOUT = 20
 USER_AGENT = "Mozilla/5.0 (compatible; AICommunityBot/1.0)"
+HREF_PATTERN = re.compile(r"""href=["']([^"']+)["']""", re.IGNORECASE)
 
 
 def _fetch_html(url: str, proxy_url: str | None = None) -> str | None:
@@ -27,6 +30,7 @@ def _fetch_html(url: str, proxy_url: str | None = None) -> str | None:
             proxies=proxies,
         )
         resp.raise_for_status()
+        logger.debug("Fetched URL %s (status=%s, bytes=%d)", url, resp.status_code, len(resp.text))
         return resp.text
     except Exception as exc:
         logger.warning("Failed to fetch %s: %s", url, exc)
@@ -35,15 +39,21 @@ def _fetch_html(url: str, proxy_url: str | None = None) -> str | None:
 
 def _extract_article(html: str, url: str) -> dict | None:
     """Use trafilatura to extract article content from HTML."""
-    result = trafilatura.extract(
+    extracted = trafilatura.bare_extraction(
         html,
         url=url,
         include_links=False,
         include_images=False,
-        output_format="python",
         with_metadata=True,
     )
-    if not result:
+    if not extracted:
+        return None
+
+    if isinstance(extracted, dict):
+        result = extracted
+    elif hasattr(extracted, "as_dict"):
+        result = extracted.as_dict()
+    else:
         return None
 
     text = result.get("text", "") or ""
@@ -65,7 +75,7 @@ def _dedup_hash(url: str) -> str:
     return hashlib.sha256(url.encode()).hexdigest()
 
 
-def run_crawl() -> None:
+def run_crawl() -> int:
     """Main crawl job: fetch all enabled sources and store raw items."""
     db = SessionLocal()
     run = SchedulerRun(job_name="crawl")
@@ -78,20 +88,30 @@ def run_crawl() -> None:
         ttl_hours = settings_row.raw_item_ttl_hours if settings_row else 72
         expires_at = datetime.now(timezone.utc) + timedelta(hours=ttl_hours)
 
-        sources = db.query(NewsSource).filter(NewsSource.enabled == True).order_by(NewsSource.crawl_priority.desc()).all()  # noqa: E712
+        sources = (
+            db.query(NewsSource)
+            .filter(NewsSource.enabled == True)  # noqa: E712
+            .order_by(NewsSource.crawl_priority.desc())
+            .all()
+        )
+        logger.info("Crawl run started: enabled_sources=%d ttl_hours=%d", len(sources), ttl_hours)
 
         items_seen = 0
         crawl_run_id = uuid.uuid4()
 
         for source in sources:
+            logger.info("Crawling source '%s' (%s)", source.name, source.base_url)
             html = _fetch_html(source.base_url, proxy_url)
             if not html:
                 source.last_error_at = datetime.now(timezone.utc)
                 db.commit()
+                logger.warning("Source '%s' fetch failed", source.name)
                 continue
 
             # Extract links from the source page
             links = _extract_links(html, source.base_url)
+            logger.info("Source '%s' produced %d candidate links", source.name, len(links))
+            source_added = 0
 
             for link in links[:20]:  # cap per source
                 dedup = _dedup_hash(link)
@@ -123,15 +143,18 @@ def run_crawl() -> None:
                 )
                 db.add(item)
                 items_seen += 1
+                source_added += 1
 
             source.last_success_at = datetime.now(timezone.utc)
             db.commit()
+            logger.info("Source '%s' done: added_items=%d", source.name, source_added)
 
         run.items_seen = items_seen
         run.status = "completed"
         run.finished_at = datetime.now(timezone.utc)
         db.commit()
         logger.info("Crawl run complete: %d items seen", items_seen)
+        return items_seen
 
     except Exception as exc:
         logger.exception("Crawl run failed")
@@ -139,12 +162,17 @@ def run_crawl() -> None:
         run.error_message = str(exc)
         run.finished_at = datetime.now(timezone.utc)
         db.commit()
+        return 0
     finally:
         db.close()
 
 
 def _extract_links(html: str, base_url: str) -> list[str]:
     """Extract article links from a source page using trafilatura."""
+    links_from_html = _extract_links_from_html(html, base_url)
+    if links_from_html:
+        return links_from_html[:20]
+
     try:
         from trafilatura.spider import focused_crawler
         # Use trafilatura's focused_crawler for link extraction
@@ -154,7 +182,35 @@ def _extract_links(html: str, base_url: str) -> list[str]:
         return []
 
 
-def run_cleanup() -> None:
+def _extract_links_from_html(page_html: str, base_url: str) -> list[str]:
+    links: list[str] = []
+    seen: set[str] = set()
+
+    for match in HREF_PATTERN.finditer(page_html):
+        href = html.unescape(match.group(1).strip())
+        if (
+            not href
+            or href.startswith("#")
+            or href.startswith("javascript:")
+            or href.startswith("mailto:")
+            or href.startswith("tel:")
+        ):
+            continue
+
+        absolute = urljoin(base_url, href).split("#", 1)[0]
+        parsed = urlparse(absolute)
+        if parsed.scheme not in ("http", "https"):
+            continue
+
+        if absolute in seen:
+            continue
+        seen.add(absolute)
+        links.append(absolute)
+
+    return links
+
+
+def run_cleanup() -> int:
     """Remove expired raw items."""
     db = SessionLocal()
     run = SchedulerRun(job_name="cleanup")
@@ -175,6 +231,7 @@ def run_cleanup() -> None:
         run.finished_at = datetime.now(timezone.utc)
         db.commit()
         logger.info("Cleanup run complete: %d items removed", deleted)
+        return deleted
 
     except Exception as exc:
         logger.exception("Cleanup run failed")
@@ -182,5 +239,6 @@ def run_cleanup() -> None:
         run.error_message = str(exc)
         run.finished_at = datetime.now(timezone.utc)
         db.commit()
+        return 0
     finally:
         db.close()
