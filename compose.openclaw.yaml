@@ -1,7 +1,6 @@
 services:
   openclaw-gateway:
-    image: ghcr.io/openclaw/openclaw:latest
-    pull_policy: always
+    image: ghcr.io/openclaw/openclaw@sha256:d60f848db7d5019336dfa17412588881a42774ad34a3429f03dd06d0a71c2848
     entrypoint:
       - /bin/sh
       - -lc
@@ -48,8 +47,7 @@ services:
       - dev-edge
 
   openclaw-cli:
-    image: ghcr.io/openclaw/openclaw:latest
-    pull_policy: always
+    image: ghcr.io/openclaw/openclaw@sha256:d60f848db7d5019336dfa17412588881a42774ad34a3429f03dd06d0a71c2848
     env_file:
       - ./docker/openclaw/.env
     depends_on:
@@ -67,8 +65,7 @@ services:
 
   openclaw-gateway-e2e:
     profiles: [e2e]
-    image: ghcr.io/openclaw/openclaw:latest
-    pull_policy: always
+    image: ghcr.io/openclaw/openclaw@sha256:d60f848db7d5019336dfa17412588881a42774ad34a3429f03dd06d0a71c2848
     entrypoint:
       - /bin/sh
       - -lc

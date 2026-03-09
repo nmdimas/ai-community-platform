@@ -11,13 +11,14 @@ E2E_COMPOSE ?= docker compose $(COMPOSE_FILES) --profile e2e
 E2E_CORE_DB ?= ai_community_platform_test
 E2E_BASE_URL ?= http://localhost:18080
 
-.PHONY: help bootstrap setup infra-setup core-setup knowledge-setup news-setup hello-setup dev-reporter-setup dev-agent-setup claw-setup \
+.PHONY: help bootstrap setup infra-setup core-setup knowledge-setup news-setup hello-setup dev-reporter-setup wiki-setup dev-agent-setup claw-setup \
 	openclaw-frontdesk-sync \
         up up-observability down ps logs logs-traefik logs-core logs-litellm logs-openclaw logs-langfuse \
         agent-up agent-down \
         litellm-db-init e2e-db-init e2e-rabbitmq-init e2e-register-agents e2e-prepare e2e-cleanup \
         install migrate test analyse cs-check cs-fix e2e e2e-smoke \
         knowledge-install knowledge-migrate knowledge-test knowledge-analyse knowledge-cs-check knowledge-cs-fix \
+        wiki-install wiki-test wiki-build \
         hello-install hello-test hello-analyse hello-cs-check hello-cs-fix \
         news-install news-migrate news-test news-analyse news-cs-check news-cs-fix \
         dev-reporter-install dev-reporter-migrate dev-reporter-test dev-reporter-analyse dev-reporter-cs-check dev-reporter-cs-fix \
@@ -34,6 +35,9 @@ help:
 		'make knowledge-install    Install PHP dependencies inside the knowledge-agent container' \
 		'make news-install         Install Python dependencies inside the news-maker-agent container' \
 		'make up                   Start the local stack in the background' \
+		'make wiki-install         Install Node dependencies inside the wiki-agent container' \
+		'make wiki-build           Run TypeScript build checks for wiki-agent (stack must be up)' \
+		'make wiki-test            Run wiki-agent tests (stack must be up)' \
 		'make agent-up name=X      Start/update a single agent (e.g. make agent-up name=hello-agent)' \
 		'make agent-down name=X    Stop a single agent (e.g. make agent-down name=hello-agent)' \
 		'make down                 Stop the local stack' \
@@ -85,7 +89,7 @@ bootstrap:
 openclaw-frontdesk-sync:
 	@./scripts/sync-openclaw-frontdesk.sh
 
-setup: infra-setup core-setup knowledge-setup hello-setup news-setup dev-reporter-setup dev-agent-setup claw-setup slides-setup
+setup: infra-setup core-setup knowledge-setup hello-setup news-setup dev-reporter-setup wiki-setup dev-agent-setup claw-setup slides-setup
 	@echo "Local development dependencies are prepared."
 
 infra-setup:
@@ -116,6 +120,10 @@ dev-agent-setup:
 	$(COMPOSE) run --rm dev-agent composer install
 	$(COMPOSE) run --rm dev-agent ./vendor/bin/codecept build
 
+wiki-setup:
+	$(COMPOSE) build wiki-agent
+	$(COMPOSE) run --rm wiki-agent npm install
+
 news-setup:
 	$(COMPOSE) build news-maker-agent
 	$(COMPOSE) run --rm news-maker-agent pip install -r requirements.txt
@@ -144,6 +152,9 @@ dev-agent-install:
 
 news-install:
 	$(COMPOSE) run --rm news-maker-agent pip install -r requirements.txt
+
+wiki-install:
+	$(COMPOSE) run --rm wiki-agent npm install
 
 up:
 	$(COMPOSE) up --build -d
@@ -249,6 +260,12 @@ dev-agent-migrate:
 
 news-migrate:
 	$(COMPOSE) exec news-maker-agent alembic upgrade head
+
+wiki-build:
+	$(COMPOSE) exec wiki-agent npm run build
+
+wiki-test:
+	$(COMPOSE) exec wiki-agent npm run test
 
 test:
 	$(COMPOSE) exec core ./vendor/bin/codecept run
