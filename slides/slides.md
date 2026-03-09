@@ -111,28 +111,28 @@ transition: fade-out
 ```mermaid {scale: 0.58, theme: 'neutral'}
 graph TB
     subgraph Clients["Клієнти"]
-        AdminUI["Admin Panel\n(Symfony/Twig)"]
-        OpenClaw["OpenClaw\n(Chat UI)"]
-        CLI["CLI\n(agent:chat)"]
+        AdminUI["Admin Panel<br/>(Symfony/Twig)"]
+        OpenClaw["OpenClaw<br/>(Chat UI)"]
+        CLI["CLI<br/>(agent:chat)"]
     end
 
     subgraph Edge["Edge Layer"]
-        Traefik["Traefik v3\nReverse Proxy + Edge Auth"]
+        Traefik["Traefik v3<br/>Reverse Proxy + Edge Auth"]
     end
 
     subgraph Core["Core Platform · PHP 8.5 + Symfony 7"]
         Registry["Agent Registry"]
         A2AGW["A2A Gateway"]
-        Discovery["Convention\nDiscovery"]
-        Logger["Structured\nLogging"]
+        Discovery["Convention<br/>Discovery"]
+        Logger["Structured<br/>Logging"]
     end
 
     subgraph Agents["Агенти · будь-яка мова"]
-        Hello["hello-agent\n· PHP"]
-        Knowledge["knowledge-agent\n· PHP"]
-        NewsMaker["news-maker-agent\n· Python"]
-        DevReporter["dev-reporter-agent\n· PHP"]
-        Future["your-agent\n· ???"]
+        Hello["hello-agent<br/>· PHP"]
+        Knowledge["knowledge-agent<br/>· PHP"]
+        NewsMaker["news-maker-agent<br/>· Python"]
+        DevReporter["dev-reporter-agent<br/>· PHP"]
+        Future["your-agent<br/>· ???"]
     end
 
     subgraph Infra["Інфраструктура"]
@@ -143,8 +143,8 @@ graph TB
     end
 
     subgraph Observability["Спостережуваність"]
-        LiteLLM["LiteLLM\nGateway"]
-        Langfuse["Langfuse\nTracing"]
+        LiteLLM["LiteLLM<br/>Gateway"]
+        Langfuse["Langfuse<br/>Tracing"]
     end
 
     Clients --> Traefik
@@ -721,18 +721,18 @@ layoutClass: gap-8
 ```mermaid {scale: 0.65, theme: 'neutral'}
 graph LR
     subgraph Frontend["Frontend Layer — кожен зі своїм template engine"]
-        Admin["Core Admin\n· Symfony Twig"]
-        KnowledgeUI["Knowledge Admin\n· Symfony Twig"]
-        NewsUI["News Admin\n· Jinja2 (Python)"]
-        OpenClawUI["OpenClaw Chat\n· Node.js"]
+        Admin["Core Admin<br/>· Symfony Twig"]
+        KnowledgeUI["Knowledge Admin<br/>· Symfony Twig"]
+        NewsUI["News Admin<br/>· Jinja2 (Python)"]
+        OpenClawUI["OpenClaw Chat<br/>· Node.js"]
     end
 
     subgraph Backend["Backend Layer — A2A Protocol"]
-        Core["Core\n· PHP/Symfony"]
-        KA["knowledge-agent\n· PHP/Symfony"]
-        NMA["news-maker-agent\n· Python/Flask"]
-        HA["hello-agent\n· PHP/Symfony"]
-        DR["dev-reporter-agent\n· PHP/Symfony"]
+        Core["Core<br/>· PHP/Symfony"]
+        KA["knowledge-agent<br/>· PHP/Symfony"]
+        NMA["news-maker-agent<br/>· Python/Flask"]
+        HA["hello-agent<br/>· PHP/Symfony"]
+        DR["dev-reporter-agent<br/>· PHP/Symfony"]
     end
 
     Admin -->|iframe| KnowledgeUI
@@ -773,10 +773,10 @@ graph LR
 
 ```mermaid {scale: 0.7, theme: 'neutral'}
 graph LR
-    A["Architect\nOpenSpec Proposal"] --> B["Coder\nImplementation"]
-    B --> C["Validator\nPHPStan + CS"]
-    C --> D["Tester\nCodecept + pytest"]
-    D --> E["Documenter\nBilingual docs"]
+    A["Architect<br/>OpenSpec Proposal"] --> B["Coder<br/>Implementation"]
+    B --> C["Validator<br/>PHPStan + CS"]
+    C --> D["Tester<br/>Codecept + pytest"]
+    D --> E["Documenter<br/>Bilingual docs"]
 
     style A fill:#f9d71c,color:#000
     style B fill:#4ecdc4,color:#000
