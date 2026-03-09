@@ -10,7 +10,7 @@ on:
   push:
     branches:
       - main
-      - ci-cd
+      - wiki-agent
 
 concurrency:
   group: deploy-${{ github.ref }}
