@@ -10,7 +10,7 @@ E2E_COMPOSE ?= docker compose $(COMPOSE_FILES) --profile e2e
 E2E_CORE_DB ?= ai_community_platform_test
 E2E_BASE_URL ?= http://localhost:18080
 
-.PHONY: help bootstrap setup infra-setup core-setup knowledge-setup news-setup hello-setup dev-reporter-setup claw-setup \
+.PHONY: help bootstrap setup infra-setup core-setup knowledge-setup news-setup hello-setup dev-reporter-setup dev-agent-setup claw-setup \
 	openclaw-frontdesk-sync \
         up up-observability down ps logs logs-traefik logs-core logs-litellm logs-openclaw logs-langfuse \
         agent-up agent-down \
@@ -20,6 +20,7 @@ E2E_BASE_URL ?= http://localhost:18080
         hello-install hello-test hello-analyse hello-cs-check hello-cs-fix \
         news-install news-migrate news-test news-analyse news-cs-check news-cs-fix \
         dev-reporter-install dev-reporter-migrate dev-reporter-test dev-reporter-analyse dev-reporter-cs-check dev-reporter-cs-fix \
+        dev-agent-install dev-agent-migrate dev-agent-test dev-agent-analyse dev-agent-cs-check dev-agent-cs-fix \
         agent-discover conventions-test \
         sync-skills pipeline pipeline-batch
 
@@ -83,7 +84,7 @@ bootstrap:
 openclaw-frontdesk-sync:
 	@./scripts/sync-openclaw-frontdesk.sh
 
-setup: infra-setup core-setup knowledge-setup hello-setup news-setup dev-reporter-setup claw-setup
+setup: infra-setup core-setup knowledge-setup hello-setup news-setup dev-reporter-setup dev-agent-setup claw-setup
 	@echo "Local development dependencies are prepared."
 
 infra-setup:
@@ -109,6 +110,11 @@ dev-reporter-setup:
 	$(COMPOSE) run --rm dev-reporter-agent composer install
 	$(COMPOSE) run --rm dev-reporter-agent ./vendor/bin/codecept build
 
+dev-agent-setup:
+	$(COMPOSE) build dev-agent
+	$(COMPOSE) run --rm dev-agent composer install
+	$(COMPOSE) run --rm dev-agent ./vendor/bin/codecept build
+
 news-setup:
 	$(COMPOSE) build news-maker-agent
 	$(COMPOSE) run --rm news-maker-agent pip install -r requirements.txt
@@ -128,6 +134,9 @@ hello-install:
 
 dev-reporter-install:
 	$(COMPOSE) run --rm dev-reporter-agent composer install
+
+dev-agent-install:
+	$(COMPOSE) run --rm dev-agent composer install
 
 news-install:
 	$(COMPOSE) run --rm news-maker-agent pip install -r requirements.txt
@@ -231,6 +240,9 @@ knowledge-migrate:
 dev-reporter-migrate:
 	$(COMPOSE) exec dev-reporter-agent php bin/console doctrine:migrations:migrate --no-interaction
 
+dev-agent-migrate:
+	$(COMPOSE) exec dev-agent php bin/console doctrine:migrations:migrate --no-interaction
+
 news-migrate:
 	$(COMPOSE) exec news-maker-agent alembic upgrade head
 
@@ -245,6 +257,9 @@ hello-test:
 
 dev-reporter-test:
 	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/codecept run
+
+dev-agent-test:
+	$(COMPOSE) exec dev-agent ./vendor/bin/codecept run
 
 news-test:
 	$(COMPOSE) exec news-maker-agent python -m pytest tests/ -v
@@ -267,6 +282,9 @@ hello-analyse:
 dev-reporter-analyse:
 	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/phpstan analyse
 
+dev-agent-analyse:
+	$(COMPOSE) exec dev-agent ./vendor/bin/phpstan analyse
+
 knowledge-analyse:
 	$(COMPOSE) exec knowledge-agent ./vendor/bin/phpstan analyse
 
@@ -279,6 +297,9 @@ hello-cs-check:
 dev-reporter-cs-check:
 	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/php-cs-fixer check --diff --allow-risky=yes
 
+dev-agent-cs-check:
+	$(COMPOSE) exec dev-agent ./vendor/bin/php-cs-fixer check --diff --allow-risky=yes
+
 knowledge-cs-check:
 	$(COMPOSE) exec knowledge-agent ./vendor/bin/php-cs-fixer check --diff --allow-risky=yes
 
@@ -290,6 +311,9 @@ hello-cs-fix:
 
 dev-reporter-cs-fix:
 	$(COMPOSE) exec dev-reporter-agent ./vendor/bin/php-cs-fixer fix --allow-risky=yes
+
+dev-agent-cs-fix:
+	$(COMPOSE) exec dev-agent ./vendor/bin/php-cs-fixer fix --allow-risky=yes
 
 knowledge-cs-fix:
 	$(COMPOSE) exec knowledge-agent ./vendor/bin/php-cs-fixer fix --allow-risky=yes
