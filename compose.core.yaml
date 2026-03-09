@@ -9,6 +9,7 @@ services:
       - traefik.enable=true
       - traefik.http.routers.core.rule=PathPrefix(`/`)
       - traefik.http.routers.core.entrypoints=web
+      - traefik.http.routers.core.priority=1
       - traefik.http.services.core.loadbalancer.server.port=80
       - traefik.http.middlewares.edge-auth.forwardauth.address=http://core/edge/auth/verify
       - traefik.http.middlewares.edge-auth.forwardauth.trustForwardHeader=true
