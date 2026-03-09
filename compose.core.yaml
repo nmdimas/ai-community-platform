@@ -47,7 +47,10 @@ services:
       EDGE_AUTH_COOKIE_NAME: ACP_EDGE_TOKEN
       EDGE_AUTH_TOKEN_TTL: 43200
       EDGE_AUTH_LOGIN_BASE_URL: http://localhost:18080
-      ADMIN_OPENCLAW_URL: http://localhost:28789
+      ADMIN_OPENCLAW_URL: http://openclaw.localhost/
+      ADMIN_LANGFUSE_URL: http://langfuse.localhost/
+      ADMIN_TRAEFIK_URL: http://traefik.localhost/dashboard/
+      ADMIN_LITELLM_URL: http://litellm.localhost/
     ports:
       - "18080:80"
     volumes:
