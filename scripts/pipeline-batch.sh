@@ -433,6 +433,15 @@ run_sequential() {
 setup_worktree_deps() {
   local wt="$1"
 
+  # Clear stale sandbox registrations in opencode's project DB.
+  # Opencode registers worktrees as "sandboxes" with restricted permissions,
+  # causing agents to get "external_directory; auto-rejecting" errors on file reads.
+  # Removing the sandbox entries lets opencode treat each worktree as a fresh project.
+  local oc_db="$HOME/.local/share/opencode/opencode.db"
+  if [[ -f "$oc_db" ]] && command -v sqlite3 &>/dev/null; then
+    sqlite3 "$oc_db" "UPDATE project SET sandboxes = '[]' WHERE worktree = '$(printf '%s' "$REPO_ROOT" | sed "s/'/''/g")'" 2>/dev/null || true
+  fi
+
   # Find vendor/, node_modules/, var/ directories in the main repo (max depth 3)
   # and create matching symlinks in the worktree
   while IFS= read -r dep_dir; do

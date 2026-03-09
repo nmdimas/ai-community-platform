@@ -19,7 +19,8 @@
 #
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Allow override via env (used by pipeline-batch.sh worktree mode)
+REPO_ROOT="${PIPELINE_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 PIPELINE_DIR="$REPO_ROOT/.opencode/pipeline"
 LOG_DIR="$PIPELINE_DIR/logs"
 REPORT_DIR="$PIPELINE_DIR/reports"
@@ -686,6 +687,45 @@ restore_agent_model() {
   fi
 }
 
+# ── Verify coder produced real code changes ──────────────────────────
+#
+# After the coder stage, check that actual source files were modified
+# (not just handoff.md or pipeline metadata). If coder produced nothing,
+# it likely hit a permission error (e.g. worktree external_directory rejection)
+# and downstream stages would run on unchanged code — a silent no-op.
+
+verify_coder_output() {
+  echo -e "  ${BLUE}Verifying coder produced code changes...${NC}"
+
+  # Get list of changed files (staged + unstaged + untracked), excluding pipeline metadata
+  local changed_files
+  changed_files=$(git -C "$REPO_ROOT" diff --name-only HEAD~1 2>/dev/null || echo "")
+
+  # Also check uncommitted changes
+  local uncommitted
+  uncommitted=$(git -C "$REPO_ROOT" diff --name-only 2>/dev/null || echo "")
+  local untracked
+  untracked=$(git -C "$REPO_ROOT" ls-files --others --exclude-standard 2>/dev/null || echo "")
+
+  local all_changes
+  all_changes=$(printf '%s\n%s\n%s' "$changed_files" "$uncommitted" "$untracked" | sort -u)
+
+  # Filter out pipeline metadata — only count real source files
+  local real_changes
+  real_changes=$(echo "$all_changes" | grep -vE '^\.opencode/|^\.pipeline-task|^handoff\.md$|^$' || true)
+
+  if [[ -z "$real_changes" ]]; then
+    echo -e "  ${RED}✗ Coder produced NO source file changes${NC}"
+    echo -e "  ${YELLOW}  Only pipeline metadata was modified. The coder agent likely failed silently.${NC}"
+    return 1
+  fi
+
+  local file_count
+  file_count=$(echo "$real_changes" | wc -l | tr -d ' ')
+  echo -e "  ${GREEN}✓ Coder modified ${file_count} source file(s)${NC}"
+  return 0
+}
+
 # ── Run a single agent with timeout and retry ─────────────────────────
 
 run_agent() {
@@ -734,18 +774,20 @@ run_agent() {
     fi
 
     # Run with timeout
+    # NOTE: We cd into REPO_ROOT instead of using --dir because opencode
+    # registers git worktrees as "sandboxes" with restricted permissions
+    # when passed via --dir. Running from CWD lets opencode detect the
+    # worktree as an independent project with full file access.
     local exit_code=0
     if command -v timeout &>/dev/null; then
-      timeout "$agent_timeout" opencode run \
+      (cd "$REPO_ROOT" && timeout "$agent_timeout" opencode run \
         --agent "$agent" \
-        --dir "$REPO_ROOT" \
-        "$message" \
+        "$message") \
         2>&1 | tee "$log_file" || exit_code=$?
     else
-      opencode run \
+      (cd "$REPO_ROOT" && opencode run \
         --agent "$agent" \
-        --dir "$REPO_ROOT" \
-        "$message" \
+        "$message") \
         2>&1 | tee "$log_file" || exit_code=$?
     fi
 
@@ -1149,8 +1191,25 @@ main() {
       write_checkpoint "$agent" "done" "$agent_dur" "$commit_hash"
       save_agent_artifact "$agent" "$agent_log"
 
-      # Run migrations after coder (before validator)
+      # Stage gate: verify coder produced actual code changes
       if [[ "$agent" == "coder" ]]; then
+        if ! verify_coder_output; then
+          local agent_dur_fail=$(( $(date +%s) - agent_start ))
+          report_lines="${report_lines}| ${agent} | ✗ no-code | ${agent_dur}s |
+"
+          write_checkpoint "$agent" "failed-no-code" "$agent_dur_fail" ""
+          failed=true
+          failed_agent="$agent (no code produced)"
+
+          send_telegram "❌ <b>${agent}</b> produced NO CODE CHANGES
+📋 <i>${TASK_MESSAGE}</i>
+⚠️ Coder stage ran but did not modify any source files. Check agent permissions/logs."
+
+          echo -e "${RED}Pipeline stopped: coder produced no code changes${NC}"
+          echo -e "${YELLOW}Check log for permission errors (e.g. worktree external_directory rejections)${NC}"
+          break
+        fi
+
         run_migrations
       fi
 
