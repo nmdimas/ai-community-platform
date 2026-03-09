@@ -40,6 +40,8 @@ make test
 After this:
 - Platform: `http://localhost/`
 - Admin: `http://localhost/admin/login` (`admin` / `test-password`)
+- Wiki Agent: `http://localhost:8090/wiki`
+- Wiki Admin: `http://localhost:8090/wiki-admin/login` (`admin` / `test-password`)
 - OpenClaw UI: `http://localhost:8082/`
 - Langfuse UI: `http://localhost:8086/` (edge login + JWT cookie)
 - LiteLLM API: `http://localhost:4000/`
@@ -51,6 +53,7 @@ Use these only for local development:
 | Surface | URL | Default credentials |
 |---------|-----|---------------------|
 | Core admin login | `http://localhost/admin/login` | `admin` / `test-password` |
+| Wiki admin login | `http://localhost:8090/wiki-admin/login` | `admin` / `test-password` |
 | Edge login for tools | `http://localhost/edge/auth/login` | `admin` / `test-password` |
 | Langfuse app login | `http://localhost:8086/` | `admin@local.dev` / `test-password` |
 | OpenClaw Control UI | `http://localhost:8082/` | Gateway token from `docker/openclaw/.env` (`OPENCLAW_GATEWAY_TOKEN`) |
@@ -141,6 +144,8 @@ docker compose restart openclaw-gateway
 | Hello Agent E2E | `http://localhost:18085/` | E2E Hello Agent (stateless) |
 | Dev Reporter Agent | `http://localhost:8087/` | Pipeline run history + Telegram notifications |
 | Dev Reporter Admin | `http://localhost:8087/admin/pipeline` | Pipeline runs admin panel |
+| Wiki Agent | `http://localhost:8090/wiki` | Standalone TypeScript wiki app + grounded chat |
+| Wiki Admin | `http://localhost:8090/wiki-admin` | Wiki-specific admin surface |
 | OpenClaw Gateway E2E | `http://localhost:28789/` | E2E OpenClaw Gateway |
 | Admin panel | `http://localhost/admin/login` | `admin` / `test-password` |
 | OpenClaw UI | `http://localhost:8082/` | Via Traefik + edge login |

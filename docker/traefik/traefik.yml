@@ -19,6 +19,8 @@ entryPoints:
     address: ":8086"
   dev-reporter:
     address: ":8087"
+  wiki:
+    address: ":8090"
 
 providers:
   docker:
