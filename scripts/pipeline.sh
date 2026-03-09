@@ -316,7 +316,7 @@ setup_branch() {
     echo "$BRANCH_NAME"
   else
     local slug
-    slug=$(echo "$TASK_MESSAGE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
+    slug=$(_task_slug "$TASK_MESSAGE")
     echo "pipeline/${slug}"
   fi
 }
@@ -383,9 +383,27 @@ commit_agent_work() {
 
 ARTIFACTS_BASE="$REPO_ROOT/tasks/artifacts"
 
-# Generate slug from task message (same as pipeline-batch.sh)
+# Generate slug from task message (first # title line only)
 _task_slug() {
-  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50
+  local text="$1"
+  # Extract first # heading as title
+  local title
+  title=$(echo "$text" | grep -m1 '^# ' | sed 's/^# //')
+  if [[ -z "$title" ]]; then
+    # Fallback: first non-empty line
+    title=$(echo "$text" | grep -m1 '[^ ]')
+  fi
+  local slug
+  slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
+  # If slug is empty (non-ASCII title), use task file basename
+  if [[ -z "$slug" && -n "$TASK_FILE" ]]; then
+    slug=$(basename "$TASK_FILE" .md)
+  fi
+  # Ultimate fallback
+  if [[ -z "$slug" ]]; then
+    slug="task-$(date +%s)"
+  fi
+  echo "$slug"
 }
 
 # Initialize artifacts directory for a task

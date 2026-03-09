@@ -257,7 +257,22 @@ BATCH_START=$(date +%s)
 # Helper: generate a slug from task description
 # ---------------------------------------------------------------------------
 task_slug() {
-  echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50
+  local slug
+  slug=$(echo "$1" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
+  # If slug is empty (non-ASCII title), use task file index as context
+  if [[ -z "$slug" ]]; then
+    # Try to find matching file and use its basename
+    for i in "${!TASK_NAMES[@]}"; do
+      if [[ "${TASK_NAMES[$i]}" == "$1" && -n "${TASK_FPATHS[$i]}" ]]; then
+        slug=$(basename "${TASK_FPATHS[$i]}" .md)
+        break
+      fi
+    done
+  fi
+  if [[ -z "$slug" ]]; then
+    slug="task-$(date +%s)"
+  fi
+  echo "$slug"
 }
 
 # ---------------------------------------------------------------------------
