@@ -41,6 +41,7 @@ Agent-facing memory index for `AI Community Platform`. Always load this file fir
 
 - `docs/features/README.md` — feature documentation index
 - `docs/features/litellm.md` — LiteLLM gateway, credentials, and operational checks
+- `docs/features/scheduler.en.md` — central cron/scheduler: manifest-driven job registration, retry policy, admin UI, Docker service
 
 ## Delivery Plans
 

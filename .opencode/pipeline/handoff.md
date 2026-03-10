@@ -195,11 +195,19 @@
 
 ## Documenter
 
-- **Status**: pending
-- **Docs created/updated**: —
+- **Status**: done
+- **Docs created/updated**:
+  - `docs/features/scheduler.md` — created (Ukrainian canonical): architecture, manifest config, lifecycle integration, retry/dead-letter policy, catch-up policy, admin UI, Docker service, API endpoints, DB schema
+  - `docs/features/scheduler.en.md` — created (English mirror): identical structure and headings
+  - `docs/scheduler.md` — **removed** (was in intermediate directory `docs/` which has subdirectories — convention violation)
+  - `docs/features/README.md` — updated: added scheduler entry to feature table
+  - `docs/agent-requirements/storage-provisioning.md` — updated: fixed broken link from `../scheduler.md` → `../features/scheduler.en.md`
+  - `INDEX.md` — updated: added `docs/features/scheduler.en.md` entry under Features section
+- **Final status**: PIPELINE COMPLETE
 
 ---
 
 - **Commit (architect)**: c9352f0
 - **Commit (coder)**: 054c83a
 - **Commit (validator)**: 1adb0ca
+- **Commit (tester)**: 1a257d9

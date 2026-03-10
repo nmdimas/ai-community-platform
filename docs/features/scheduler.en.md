@@ -1,10 +1,12 @@
-# Central Scheduler
+# Central Job Scheduler
 
 ## Overview
 
-The platform includes a centralized job scheduler that allows any agent to register periodic or one-shot tasks. The scheduler runs as a long-lived Symfony Command (`scheduler:run`) inside the `core-scheduler` Docker service and invokes agent skills via the A2A protocol.
+The platform includes a centralized job scheduler that allows any agent to register periodic or
+one-shot tasks. The scheduler runs as a long-lived Symfony Command (`scheduler:run`) inside the
+`core-scheduler` Docker service and invokes agent skills via the A2A protocol.
 
-## Architecture
+### Architecture
 
 - **Scheduler process**: `php bin/console scheduler:run` — polls the database every 10 seconds
 - **Persistence**: Job state is stored in the `scheduled_jobs` PostgreSQL table — survives restarts
@@ -12,9 +14,9 @@ The platform includes a centralized job scheduler that allows any agent to regis
 - **Concurrency**: `SELECT ... FOR UPDATE SKIP LOCKED` prevents duplicate execution across multiple scheduler instances
 - **Graceful shutdown**: Handles `SIGTERM`/`SIGINT` via `SignalableCommandInterface`
 
-## Manifest Integration
+## Quick Start
 
-Agents declare scheduled jobs in their `manifest.json` under the `scheduled_jobs` key:
+To register jobs in the scheduler, add a `scheduled_jobs` section to the agent's `manifest.json`:
 
 ```json
 {
@@ -34,7 +36,11 @@ Agents declare scheduled jobs in their `manifest.json` under the `scheduled_jobs
 }
 ```
 
-### Fields
+After installing the agent (`install`), jobs are automatically registered in the scheduler.
+
+## Configuration — manifest.json
+
+### `scheduled_jobs` Fields
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
@@ -60,7 +66,7 @@ Examples:
 
 Powered by [`dragonmantank/cron-expression`](https://github.com/dragonmantank/cron-expression).
 
-## Lifecycle Integration
+## Agent Lifecycle Integration
 
 Jobs are automatically managed as part of the agent lifecycle:
 
