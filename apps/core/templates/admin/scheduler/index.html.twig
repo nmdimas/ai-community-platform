@@ -1,0 +1,98 @@
+{% extends 'admin/layout.html.twig' %}
+
+{% block title %}Планувальник — Admin{% endblock %}
+{% block page_title %}Планувальник завдань{% endblock %}
+
+{% block content %}
+    <div class="glass-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
+            <span style="font-size:.85rem;color:var(--text-secondary);">Всього завдань: {{ jobs|length }}</span>
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Агент</th>
+                        <th>Завдання</th>
+                        <th>Скіл</th>
+                        <th>Cron</th>
+                        <th>Наступний запуск</th>
+                        <th>Останній запуск</th>
+                        <th>Статус</th>
+                        <th>Увімкнено</th>
+                        <th>Дії</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for job in jobs %}
+                        <tr>
+                            <td>{{ job.agent_name }}</td>
+                            <td>{{ job.job_name }}</td>
+                            <td style="font-family:monospace;font-size:.8rem;">{{ job.skill_id }}</td>
+                            <td style="font-family:monospace;font-size:.8rem;">{{ job.cron_expression ?? '—' }}</td>
+                            <td style="font-size:.85rem;white-space:nowrap;">{{ job.next_run_at ? job.next_run_at|slice(0, 19)|replace({'T': ' '}) : '—' }}</td>
+                            <td style="font-size:.85rem;white-space:nowrap;">{{ job.last_run_at ? job.last_run_at|slice(0, 19)|replace({'T': ' '}) : '—' }}</td>
+                            <td>
+                                {% if job.last_status == 'completed' %}
+                                    <span class="badge badge-log-info">completed</span>
+                                {% elseif job.last_status == 'failed' %}
+                                    <span class="badge badge-log-error">failed</span>
+                                {% elseif job.last_status == 'dead_letter' %}
+                                    <span class="badge badge-log-critical">dead_letter</span>
+                                {% else %}
+                                    <span style="color:var(--text-muted);">{{ job.last_status ?? '—' }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if job.enabled %}
+                                    <span class="badge badge-log-info">так</span>
+                                {% else %}
+                                    <span class="badge badge-log-error">ні</span>
+                                {% endif %}
+                            </td>
+                            <td style="white-space:nowrap;">
+                                <button
+                                    class="btn btn-settings"
+                                    style="font-size:.75rem;padding:.25rem .6rem;"
+                                    onclick="runNow('{{ job.id }}')"
+                                >Запустити</button>
+                                <button
+                                    class="btn btn-settings"
+                                    style="font-size:.75rem;padding:.25rem .6rem;margin-left:.25rem;"
+                                    onclick="toggleJob('{{ job.id }}', {{ job.enabled ? 'false' : 'true' }})"
+                                >{{ job.enabled ? 'Вимкнути' : 'Увімкнути' }}</button>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty-row">Завдань не знайдено</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+function runNow(id) {
+    fetch('/api/v1/internal/scheduler/' + id + '/run', {method: 'POST'})
+        .then(r => r.json())
+        .then(() => location.reload())
+        .catch(e => alert('Error: ' + e));
+}
+
+function toggleJob(id, enable) {
+    fetch('/api/v1/internal/scheduler/' + id + '/toggle', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: enable})
+    })
+        .then(r => r.json())
+        .then(() => location.reload())
+        .catch(e => alert('Error: ' + e));
+}
+</script>
+{% endblock %}

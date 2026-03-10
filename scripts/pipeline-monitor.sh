@@ -17,12 +17,14 @@
 #   ↑/↓         Select task (Overview tab)
 #   Enter       View selected task detail
 #   Esc/Bksp    Back to task list
-#   s           Start batch (run todo tasks with caffeinate)
+#   s           Start batch / start extra worker for selected task
 #   f           Retry failed (move failed→todo, delete branches, start)
 #   k           Kill running batch
 #   x           Stop selected in-progress task
-#   p           Promote selected todo task (increase priority)
-#   d           Demote selected todo task (decrease priority)
+#   +           Raise priority of selected waiting task
+#   -           Lower priority of selected waiting task
+#   d           Delete selected waiting/failed task (with files)
+#   a           Archive all completed tasks
 #   r           Refresh
 #   q/Ctrl-C    Quit
 #
@@ -31,7 +33,7 @@
 #   in the first line of the .md file:
 #     <!-- priority: 5 -->
 #   Higher number = higher priority. Default priority = 1.
-#   Use [p] and [d] keys to adjust priority of the selected todo task.
+#   Use [+] and [-] keys to adjust priority of the selected todo task.
 #
 set -uo pipefail
 
@@ -540,21 +542,33 @@ render_bottom_menu_buf() {
     state="${ALL_TASKS_STATES[$SELECTED_IDX]%%:*}"
   fi
 
+  local batch_running=false
+  is_batch_running && batch_running=true
+
   local keys="  ${DIM}←/→ tabs  ↑/↓ select  Enter detail"
 
   case "$state" in
     in-progress)
-      keys="$keys  ${WHITE}[x]${DIM} stop task"
+      keys="$keys  ${WHITE}[x]${DIM} stop"
       ;;
     failed)
-      keys="$keys  ${WHITE}[f]${DIM} retry failed"
+      keys="$keys  ${WHITE}[f]${DIM} retry  ${WHITE}[d]${DIM} delete"
       ;;
     todo)
-      keys="$keys  ${WHITE}[p]${DIM} priority+  ${WHITE}[d]${DIM} priority-"
+      keys="$keys  ${WHITE}[+]${DIM} prio+  ${WHITE}[-]${DIM} prio-  ${WHITE}[d]${DIM} delete"
+      if $batch_running; then
+        keys="$keys  ${WHITE}[s]${DIM} start extra"
+      fi
+      ;;
+    done)
+      keys="$keys  ${WHITE}[a]${DIM} archive"
       ;;
   esac
 
-  keys="$keys  ${WHITE}[s]${DIM} start  ${WHITE}[k]${DIM} kill  ${WHITE}[q]${DIM} quit${RESET}"
+  if ! $batch_running; then
+    keys="$keys  ${WHITE}[s]${DIM} start"
+  fi
+  keys="$keys  ${WHITE}[a]${DIM} archive  ${WHITE}[k]${DIM} kill  ${WHITE}[q]${DIM} quit${RESET}"
   buf_line "$keys"
 }
 
@@ -659,7 +673,8 @@ is_batch_running() {
 
 action_start() {
   if is_batch_running; then
-    ACTION_MSG="${RED}Batch already running${RESET}"
+    # Batch already running — start selected task as extra worker
+    action_start_task
     return
   fi
 
@@ -790,6 +805,179 @@ action_demote() {
   ACTION_MSG="${MAGENTA}Priority → #${new_prio}${RESET}"
 }
 
+action_delete() {
+  if [[ $ALL_TASKS_COUNT -eq 0 || $SELECTED_IDX -ge $ALL_TASKS_COUNT ]]; then
+    return
+  fi
+
+  local state="${ALL_TASKS_STATES[$SELECTED_IDX]%%:*}"
+  if [[ "$state" != "todo" && "$state" != "failed" ]]; then
+    ACTION_MSG="${YELLOW}Can only delete waiting or failed tasks${RESET}"
+    return
+  fi
+
+  local file="${ALL_TASKS_FILES[$SELECTED_IDX]}"
+  local title="${ALL_TASKS_TITLES[$SELECTED_IDX]}"
+  local fname
+  fname=$(basename "$file" .md)
+
+  # Extract branch name from batch metadata (failed tasks have it)
+  local branch_name=""
+  branch_name=$(grep -m1 '<!-- batch:' "$file" 2>/dev/null | sed 's/.*branch: \([^ ]*\) -->.*/\1/' || true)
+  if [[ -z "$branch_name" || "$branch_name" == *"<!--"* ]]; then
+    # Guess branch from slug
+    local slug
+    slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
+    [[ -n "$slug" ]] && branch_name="pipeline/${slug}"
+  fi
+
+  # Delete the task file
+  rm -f "$file"
+
+  # Delete associated branch
+  if [[ -n "$branch_name" ]]; then
+    git -C "$REPO_ROOT" branch -D "$branch_name" 2>/dev/null || true
+  fi
+
+  # Delete associated logs
+  rm -f "$LOG_DIR"/*"${fname}"* 2>/dev/null || true
+
+  # Delete associated artifacts
+  rm -rf "$REPO_ROOT/tasks/artifacts/${fname}" 2>/dev/null || true
+
+  ACTION_MSG="${RED}Deleted: ${title}${RESET}"
+}
+
+action_archive() {
+  local done_dir="$TASK_SOURCE/done"
+  local archive_dir="$TASK_SOURCE/archive"
+
+  if [[ ! -d "$done_dir" ]]; then
+    ACTION_MSG="${YELLOW}No completed tasks to archive${RESET}"
+    return
+  fi
+
+  local count=0
+  mkdir -p "$archive_dir"
+
+  for f in "$done_dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    mv "$f" "$archive_dir/$(basename "$f")"
+    count=$((count + 1))
+  done
+
+  if [[ $count -eq 0 ]]; then
+    ACTION_MSG="${YELLOW}No completed tasks to archive${RESET}"
+    return
+  fi
+
+  ACTION_MSG="${GREEN}Archived $count completed task(s)${RESET}"
+}
+
+action_start_task() {
+  if [[ $ALL_TASKS_COUNT -eq 0 || $SELECTED_IDX -ge $ALL_TASKS_COUNT ]]; then
+    return
+  fi
+
+  local state="${ALL_TASKS_STATES[$SELECTED_IDX]%%:*}"
+  if [[ "$state" != "todo" ]]; then
+    ACTION_MSG="${YELLOW}Can only start waiting tasks${RESET}"
+    return
+  fi
+
+  local file="${ALL_TASKS_FILES[$SELECTED_IDX]}"
+  local title="${ALL_TASKS_TITLES[$SELECTED_IDX]}"
+  local fname
+  fname=$(basename "$file" .md)
+
+  # Find next available worker number
+  local worker_num=1
+  while [[ -d "$WORKTREE_BASE/worker-${worker_num}" ]]; do
+    worker_num=$((worker_num + 1))
+  done
+
+  local wt="$WORKTREE_BASE/worker-${worker_num}"
+  local slug
+  slug=$(echo "$title" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//' | cut -c1-50)
+  [[ -z "$slug" ]] && slug="$fname"
+  local task_branch="pipeline/${slug}"
+
+  # Move task to in-progress
+  mkdir -p "$TASK_SOURCE/in-progress"
+  local active_file="$TASK_SOURCE/in-progress/$(basename "$file")"
+  mv "$file" "$active_file"
+
+  # Create worktree and run pipeline in background
+  (
+    mkdir -p "$WORKTREE_BASE"
+    git -C "$REPO_ROOT" worktree prune 2>/dev/null || true
+    git -C "$REPO_ROOT" worktree add --detach "$wt" HEAD 2>/dev/null || {
+      # Failed to create worktree — move task back
+      mv "$active_file" "$file"
+      exit 1
+    }
+
+    # Setup deps (symlink vendor, node_modules, etc.)
+    while IFS= read -r dep_dir; do
+      local rel_path="${dep_dir#"$REPO_ROOT"/}"
+      local wt_target="$wt/$rel_path"
+      [[ -L "$wt_target" || -d "$wt_target" ]] && continue
+      mkdir -p "$wt/$(dirname "$rel_path")"
+      ln -s "$dep_dir" "$wt_target"
+    done < <(find "$REPO_ROOT" -maxdepth 3 -type d \( -name vendor -o -name node_modules -o -name var -o -name '.venv' \) \
+      -not -path '*/.opencode/*' -not -path '*/.git/*' 2>/dev/null)
+
+    if [[ -d "$REPO_ROOT/.local" && ! -L "$wt/.local" ]]; then
+      ln -s "$REPO_ROOT/.local" "$wt/.local"
+    fi
+    local artifacts_dir="$REPO_ROOT/tasks/artifacts"
+    mkdir -p "$artifacts_dir"
+    if [[ ! -L "$wt/tasks/artifacts" ]]; then
+      mkdir -p "$wt/tasks"
+      ln -s "$artifacts_dir" "$wt/tasks/artifacts"
+    fi
+
+    local pipeline_script="$wt/scripts/pipeline.sh"
+    local wt_task_file="$wt/.pipeline-task-extra.md"
+    cp "$active_file" "$wt_task_file"
+
+    local log_file="$LOG_DIR/extra-worker-${worker_num}-${fname}.log"
+    mkdir -p "$(dirname "$log_file")"
+
+    local start_time
+    start_time=$(date +%s)
+    local exit_code=0
+
+    "$pipeline_script" --branch "$task_branch" --task-file "$wt_task_file" \
+      > "$log_file" 2>&1 || exit_code=$?
+
+    rm -f "$wt_task_file"
+
+    local end_time duration
+    end_time=$(date +%s)
+    duration=$(( end_time - start_time ))
+
+    local batch_ts
+    batch_ts=$(date +%Y%m%d_%H%M%S)
+
+    if [[ $exit_code -eq 0 ]]; then
+      local dest="$TASK_SOURCE/done/$(basename "$active_file")"
+      { echo "<!-- batch: ${batch_ts} | status: pass | duration: ${duration}s | branch: ${task_branch} -->"; cat "$active_file"; } > "$dest"
+      rm -f "$active_file"
+    else
+      local dest="$TASK_SOURCE/failed/$(basename "$active_file")"
+      mkdir -p "$TASK_SOURCE/failed"
+      { echo "<!-- batch: ${batch_ts} | status: fail | duration: ${duration}s | branch: ${task_branch} -->"; cat "$active_file"; } > "$dest"
+      rm -f "$active_file"
+    fi
+
+    # Cleanup worktree — back to base worker count
+    git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
+  ) &
+
+  ACTION_MSG="${GREEN}Started extra worker-${worker_num}: ${title}${RESET}"
+}
+
 ACTION_MSG=""
 
 # ---------------------------------------------------------------------------
@@ -827,7 +1015,7 @@ read_key() {
     if [[ "$key" == $'\x1b' ]]; then
       # Read the rest of the escape sequence in one shot (2 bytes: [ + letter)
       local rest=""
-      read -rsn2 -t 0.05 rest || true
+      read -rsn2 -t 1 rest || true
       case "$rest" in
         "[A") LAST_KEY="UP" ;;
         "[B") LAST_KEY="DOWN" ;;
@@ -881,11 +1069,17 @@ main() {
       x|X)
         action_stop_task
         ;;
-      p|P)
+      +)
         action_promote
         ;;
-      d|D)
+      -)
         action_demote
+        ;;
+      d|D)
+        action_delete
+        ;;
+      a|A)
+        action_archive
         ;;
       UP)
         if [[ $SELECTED_IDX -gt 0 ]]; then

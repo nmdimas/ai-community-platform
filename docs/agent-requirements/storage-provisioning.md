@@ -119,6 +119,30 @@ my-agent:
 
 This enables multi-instance deployments with different credentials per environment.
 
+## Scheduled Jobs
+
+Agents can declare periodic or one-shot tasks in their manifest under `scheduled_jobs`. These are registered into the platform's central scheduler during install and removed during uninstall.
+
+See [docs/scheduler.md](../scheduler.md) for the full manifest format, retry policy, and admin UI documentation.
+
+```json
+{
+  "scheduled_jobs": [
+    {
+      "name": "daily-sync",
+      "skill_id": "my_agent.sync",
+      "cron_expression": "0 0 * * *",
+      "payload": {},
+      "max_retries": 3,
+      "retry_delay_seconds": 60,
+      "timezone": "UTC"
+    }
+  ]
+}
+```
+
+Scheduled jobs do **not** require any storage provisioning — they are stored in the platform's `scheduled_jobs` table in core's database.
+
 ## Deprovisioning Strategy
 
 Storage cleanup happens on explicit uninstall (`DELETE /api/v1/internal/agents/{name}`):
