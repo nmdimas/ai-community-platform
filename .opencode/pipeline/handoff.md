@@ -106,10 +106,13 @@ assumes that every production agent must live under `apps/`.
 
 ## Validator
 
-- **Status**: pending
-- **PHPStan**: —
-- **CS-check**: —
-- **Files fixed**: —
+- **Status**: done
+- **PHPStan**:
+  - No changed apps under `apps/`; validation scope contained no app analyse targets to run
+- **CS-check**:
+  - No changed apps under `apps/`; validation scope contained no app cs-check targets to run
+- **Files fixed**:
+  - `.opencode/pipeline/handoff.md`
 
 ## Tester
 
@@ -124,3 +127,4 @@ assumes that every production agent must live under `apps/`.
 
 ---
 
+- **Commit (coder)**: 1551c93
