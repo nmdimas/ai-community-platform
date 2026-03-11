@@ -1,9 +1,73 @@
 # Pipeline Handoff
 
-- **Task**: Implement openspec change add-central-scheduler
-- **Started**: 2026-03-11 00:43:57
-- **Branch**: pipeline/implement-openspec-change-add-central-scheduler
-- **Pipeline ID**: 20260311_004355
+- **Task**: # Implement external agent workspace contract
+
+Implement the approved OpenSpec change `refactor-agents-into-external-repositories` phase 1.
+
+## Goal
+
+Create the first real platform support for externally checked out agents so the repo no longer
+assumes that every production agent must live under `apps/`.
+
+## Scope
+
+- Define and implement the canonical external checkout convention: `projects/<agent-name>/`
+- Add compose loading support for external agent fragments without hardcoding each agent into the
+  base platform compose files
+- Add Makefile targets or scripts for external agent workflows:
+  - detect/list external agent compose fragments
+  - start/update a named external agent
+  - stop a named external agent
+- Ensure the approach remains compatible with existing agent discovery and manifest conventions
+- Add documentation for the external workspace contract and operator onboarding flow
+
+## OpenSpec References
+
+- `openspec/changes/refactor-agents-into-external-repositories/proposal.md`
+- `openspec/changes/refactor-agents-into-external-repositories/tasks.md`
+- `openspec/changes/refactor-agents-into-external-repositories/design.md`
+- `openspec/changes/refactor-agents-into-external-repositories/specs/external-agent-workspace/spec.md`
+- `openspec/changes/refactor-agents-into-external-repositories/specs/external-agent-onboarding/spec.md`
+
+## Relevant Repo Context
+
+- `Makefile`
+- `compose.yaml`
+- `compose.core.yaml`
+- `compose.agent-*.yaml`
+- `docs/guides/deployment/ua/deployment.md`
+- `docs/guides/deployment/en/deployment.md`
+- `docs/agent-requirements/`
+- `openspec/changes/refactor-agent-discovery/`
+
+## Acceptance Criteria
+
+- Operators have one documented and supported path to connect an external agent checkout from
+  `projects/<agent-name>/`
+- Platform tooling no longer requires editing top-level compose files per external agent install
+- The implementation preserves the existing manifest/health/discovery contract
+- The docs explain:
+  - repository checkout convention
+  - compose fragment convention
+  - env/secrets expectations
+  - healthcheck and labels requirements
+  - verification and detach flow
+- Any added script or Make target uses the current repo conventions and is documented
+
+## Constraints
+
+- Do not implement a remote marketplace or auto-cloning from admin UI
+- Do not break the current in-repo agent workflow
+- Keep the change incremental and compatible with current Docker development flow
+- Follow OpenSpec and update docs as part of the implementation
+
+## Validation
+
+- Run relevant tests/checks for changed code
+- Run `openspec validate refactor-agents-into-external-repositories --strict`
+- **Started**: 2026-03-11 10:43:50
+- **Branch**: pipeline/implement-external-agent-workspace-contract
+- **Pipeline ID**: 20260311_104344
 
 ---
 
@@ -18,53 +82,34 @@
 ## Coder
 
 - **Status**: done
+- **Files created**:
+  - `compose.external-agents.yaml` — documents the external agent fragment loading convention
+  - `compose.fragments/.gitkeep` — tracks the fragments directory in git
+  - `compose.fragments/example-agent.yaml.template` — reference compose fragment template for agent authors
+  - `projects/.gitkeep` — tracks the external agent checkouts directory in git
+  - `scripts/external-agent.sh` — script implementing list/up/down/clone commands
+  - `docs/guides/external-agents/en/onboarding.md` — operator onboarding guide (English)
+  - `docs/guides/external-agents/ua/onboarding.md` — operator onboarding guide (Ukrainian, canonical)
+  - `docs/guides/external-agents/en/repository-structure.md` — developer guide for external agent repo structure
+  - `docs/guides/external-agents/en/migration-playbook.md` — playbook for migrating bundled agents to external repos
 - **Files modified**:
-  - `apps/core/composer.json` — added `dragonmantank/cron-expression: ^3.6`
-  - `apps/core/composer.lock` — updated
-  - `apps/core/migrations/Version20260310000001.php` — new: creates `scheduled_jobs` table
-  - `apps/core/src/Scheduler/ScheduledJobRepositoryInterface.php` — new: interface
-  - `apps/core/src/Scheduler/ScheduledJobRepository.php` — new: DBAL repository
-  - `apps/core/src/Scheduler/CronExpressionHelperInterface.php` — new: interface
-  - `apps/core/src/Scheduler/CronExpressionHelper.php` — new: cron expression wrapper
-  - `apps/core/src/Scheduler/SchedulerService.php` — new: orchestration service
-  - `apps/core/src/A2AGateway/A2AClientInterface.php` — new: interface for A2AClient (needed for testability)
-  - `apps/core/src/A2AGateway/A2AClient.php` — modified: implements A2AClientInterface
-  - `apps/core/src/Command/SchedulerRunCommand.php` — new: `scheduler:run` command
-  - `apps/core/src/Controller/Admin/SchedulerController.php` — new: admin scheduler page
-  - `apps/core/src/Controller/Api/Internal/SchedulerRunNowController.php` — new: POST /api/v1/internal/scheduler/{id}/run
-  - `apps/core/src/Controller/Api/Internal/SchedulerToggleController.php` — new: POST /api/v1/internal/scheduler/{id}/toggle
-  - `apps/core/src/Controller/Api/Internal/AgentInstallController.php` — modified: registers scheduled jobs on install
-  - `apps/core/src/Controller/Api/Internal/AgentDeleteController.php` — modified: removes scheduled jobs on uninstall
-  - `apps/core/src/Controller/Api/Internal/AgentEnableController.php` — modified: enables scheduled jobs on agent enable
-  - `apps/core/src/Controller/Api/Internal/AgentDisableController.php` — modified: disables scheduled jobs on agent disable
-  - `apps/core/templates/admin/layout.html.twig` — modified: added Scheduler nav link
-  - `apps/core/templates/admin/scheduler/index.html.twig` — new: scheduler admin page template
-  - `compose.core.yaml` — modified: added `core-scheduler` service
-  - `apps/core/tests/Unit/Scheduler/CronExpressionHelperTest.php` — new: unit tests
-  - `apps/core/tests/Unit/Scheduler/SchedulerServiceTest.php` — new: unit tests
-  - `apps/core/tests/Functional/Scheduler/ScheduledJobRepositoryCest.php` — new: functional tests
-  - `apps/core/tests/Functional/Scheduler/AgentInstallSchedulerCest.php` — new: functional tests
-  - `docs/scheduler.md` — new: developer documentation
-  - `docs/agent-requirements/storage-provisioning.md` — modified: added scheduled_jobs section
-- **Migrations created**: `apps/core/migrations/Version20260310000001.php` — run successfully
+  - `Makefile` — added `EXTERNAL_AGENT_FILES` variable, included fragments in `COMPOSE_FILES`, added `external-agent-list/up/down/clone` targets
+  - `.gitignore` — added `projects/` and `compose.fragments/*.yaml` (with exceptions for tracked files)
+  - `docs/agent-requirements/conventions.md` — added external agent checklist (section 8) and workspace convention (section 9)
+  - `docs/guides/deployment/en/deployment.md` — added External Agents section
+  - `docs/guides/deployment/ua/deployment.md` — added Зовнішні агенти section
+  - `openspec/changes/refactor-agents-into-external-repositories/tasks.md` — marked all tasks `[x]`
+- **Migrations created**: none (no PHP/DB changes)
 - **Deviations**:
-  - Added `ScheduledJobRepositoryInterface`, `CronExpressionHelperInterface`, and `A2AClientInterface` to enable unit testing (all three classes are `final`). This is a minor addition not in the spec but required for testability.
-  - `enableByAgent` in `SchedulerService` uses `findByAgent()` (added to interface) instead of `findAll()` for efficiency.
-  - `updateAfterRun` SQL was split into two branches (null/non-null `nextRunAt`) to avoid PostgreSQL type inference error with `COALESCE(:param::TIMESTAMPTZ, column)`.
-  - Test results: 49 functional tests (220 assertions), 172 unit tests (560 assertions) — all pass.
-  - PHPStan: 2 pre-existing errors in unrelated files; 0 new errors.
-  - CS check: 0 violations.
+  - `compose.external-agents.yaml` is a documentation-only file (no services). The actual loading mechanism is the `EXTERNAL_AGENT_FILES := $(wildcard compose.fragments/*.yaml)` variable in the Makefile, which auto-discovers all fragments without requiring operators to edit any platform file. This is simpler and more robust than a single aggregator compose file.
+  - Pilot agent (`hello-agent`) migration is documented in the playbook but not executed — the spec calls for documenting the playbook, not performing the actual extraction in this phase.
 
 ## Validator
 
-- **Status**: done
-- **PHPStan**:
-  - `apps/core/`: pass
-- **CS-check**:
-  - `apps/core/`: pass
-- **Files fixed**:
-  - `apps/core/src/AgentAction/NewsCrawlTrigger.php`
-  - `apps/core/src/AgentInstaller/Strategy/OpenSearchInstallStrategy.php`
+- **Status**: pending
+- **PHPStan**: —
+- **CS-check**: —
+- **Files fixed**: —
 
 ## Tester
 
@@ -77,20 +122,5 @@
 - **Status**: pending
 - **Docs created/updated**: —
 
-## Auditor
-
-- **Status**: done
-- **Audit Report**: `.opencode/pipeline/reports/20260311_004355_audit.md`
-- **Score**: 93% (56 PASS | 4 WARN | 0 FAIL)
-- **Verdict**: PASS
-- **Findings**:
-  - All critical requirements met (structure, testing, security, migrations)
-  - WARN: Scheduler generates trace_id/request_id but doesn't include them in log context (O-07, O-08)
-  - WARN: Missing Ukrainian translation for scheduler docs
-  - WARN: Scheduler not listed in index.md
-
 ---
 
-- **Commit (coder)**: 1625e70
-- **Commit (validator)**: 7f920e8
-- **Commit (tester)**: 9972656
