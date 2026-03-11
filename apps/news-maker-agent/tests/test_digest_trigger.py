@@ -183,3 +183,52 @@ def test_delivery_failure_digest_preserved(caplog) -> None:
     assert any("channel delivery failed" in record.message for record in caplog.records)
     assert any("digest preserved" in record.message for record in caplog.records)
     assert any(str(digest_id) in record.message for record in caplog.records)
+
+
+def test_publish_to_channel_posts_expected_payload() -> None:
+    """Publish sends Core A2A request with expected tool/input/metadata and auth."""
+    from app.services.digest import _publish_to_channel
+
+    digest_id = uuid.uuid4()
+
+    with (
+        patch("app.services.digest.settings") as mock_settings,
+        patch("app.services.digest.requests.post") as mock_post,
+    ):
+        mock_settings.openclaw_gateway_token = "test-token"
+        mock_settings.platform_core_url = "http://core"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.raise_for_status.return_value = None
+        mock_post.return_value = mock_response
+
+        _publish_to_channel(digest_id, "Digest title", "Digest body", 5, "req-1", "trace-1")
+
+    mock_post.assert_called_once()
+    kwargs = mock_post.call_args.kwargs
+    assert kwargs["json"]["tool"] == "openclaw.send_message"
+    assert kwargs["json"]["input"] == {"title": "Digest title", "body": "Digest body"}
+    assert kwargs["json"]["metadata"]["digest_id"] == str(digest_id)
+    assert kwargs["json"]["metadata"]["item_count"] == 5
+    assert kwargs["json"]["metadata"]["source"] == "news-maker-agent"
+    assert kwargs["headers"]["Authorization"] == "Bearer test-token"
+    assert kwargs["headers"]["x-request-id"] == "req-1"
+    assert kwargs["headers"]["x-trace-id"] == "trace-1"
+    assert kwargs["timeout"] == 10
+
+
+def test_publish_to_channel_skips_without_gateway_token() -> None:
+    """Publish is skipped when OPENCLAW_GATEWAY_TOKEN is not configured."""
+    from app.services.digest import _publish_to_channel
+
+    with (
+        patch("app.services.digest.settings") as mock_settings,
+        patch("app.services.digest.requests.post") as mock_post,
+    ):
+        mock_settings.openclaw_gateway_token = ""
+        mock_settings.platform_core_url = "http://core"
+
+        _publish_to_channel(uuid.uuid4(), "Title", "Body", 1, "req-1", "")
+
+    mock_post.assert_not_called()
