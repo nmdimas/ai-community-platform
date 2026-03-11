@@ -1,0 +1,16 @@
+{
+  "profile": "complex",
+  "reasoning": "Multi-service change: new DB table with migration, new Symfony services (ScheduledJobRepository, CronExpressionHelper, SchedulerService, SchedulerRunCommand), new admin UI and internal API endpoints, modifications to 4 existing controllers, new Docker Compose service, and new Composer dependency. Crosses DB, backend, admin UI, and infrastructure layers. OpenSpec proposal is complete with tasks.md ready — architect not needed.",
+  "agents": ["coder", "validator", "tester", "auditor"],
+  "skip_openspec": true,
+  "estimated_files": 25,
+  "apps_affected": ["core"],
+  "needs_migration": true,
+  "needs_api_change": true,
+  "timeout_overrides": {
+    "coder": 1800,
+    "tester": 900,
+    "auditor": 600
+  },
+  "model_overrides": {}
+}

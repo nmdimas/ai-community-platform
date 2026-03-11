@@ -1,0 +1,152 @@
+# Central Scheduler
+
+## Overview
+
+The platform provides a centralized, persistent job scheduler in `apps/core`. Any agent can declare scheduled jobs in its `manifest.json`, and the platform will execute them reliably via the A2A protocol with retry, dead-letter, and admin visibility.
+
+## Architecture
+
+- **`ScheduledJobRepository`** — DBAL-based CRUD for the `scheduled_jobs` PostgreSQL table
+- **`CronExpressionHelper`** — Wrapper around `dragonmantank/cron-expression` for cron parsing
+- **`SchedulerService`** — Orchestrates tick logic: find due jobs, invoke via A2AClient, handle retries
+- **`SchedulerRunCommand`** (`scheduler:run`) — Long-running Symfony command, polls every 10 seconds
+- **`core-scheduler`** Docker service — Runs the command as a separate process
+
+## Database Table
+
+The `scheduled_jobs` table stores all job definitions:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `agent_name` | VARCHAR(64) | Agent that owns the job |
+| `job_name` | VARCHAR(128) | Unique job name within the agent |
+| `skill_id` | VARCHAR(128) | A2A skill to invoke |
+| `payload` | JSONB | Input payload for the skill |
+| `cron_expression` | VARCHAR(64) | Standard cron expression (NULL = one-shot) |
+| `next_run_at` | TIMESTAMPTZ | When the job should next run |
+| `last_run_at` | TIMESTAMPTZ | When the job last ran |
+| `last_status` | VARCHAR(32) | `completed`, `failed`, `dead_letter` |
+| `retry_count` | INTEGER | Current retry attempt count |
+| `max_retries` | INTEGER | Maximum retries before dead-lettering |
+| `retry_delay_seconds` | INTEGER | Seconds to wait between retries |
+| `enabled` | BOOLEAN | Whether the job is active |
+| `timezone` | VARCHAR(64) | Timezone for cron evaluation |
+
+Unique constraint: `(agent_name, job_name)` — registration is idempotent.
+Index: `(enabled, next_run_at)` — optimized for polling.
+
+## Manifest Format
+
+Agents declare scheduled jobs in `manifest.json` under `scheduled_jobs`:
+
+```json
+{
+  "name": "my-agent",
+  "version": "1.0.0",
+  "scheduled_jobs": [
+    {
+      "name": "daily-sync",
+      "skill_id": "my_agent.sync",
+      "cron_expression": "0 0 * * *",
+      "payload": {"mode": "full"},
+      "max_retries": 3,
+      "retry_delay_seconds": 60,
+      "timezone": "UTC"
+    },
+    {
+      "name": "one-shot-init",
+      "skill_id": "my_agent.init",
+      "payload": {},
+      "max_retries": 1,
+      "retry_delay_seconds": 30,
+      "timezone": "UTC"
+    }
+  ]
+}
+```
+
+### Fields
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `name` | yes | — | Unique job name within the agent |
+| `skill_id` | yes | — | A2A skill ID to invoke |
+| `cron_expression` | no | `null` | Standard cron (5 fields). Null = one-shot |
+| `payload` | no | `{}` | JSON payload passed to the skill |
+| `max_retries` | no | `3` | Max retry attempts on failure |
+| `retry_delay_seconds` | no | `60` | Seconds between retries |
+| `timezone` | no | `UTC` | Timezone for cron evaluation |
+
+## Lifecycle Integration
+
+Jobs are automatically managed during agent lifecycle events:
+
+| Event | Action |
+|-------|--------|
+| **Install** | Registers all `scheduled_jobs` from manifest into DB |
+| **Uninstall** | Deletes all scheduled jobs for the agent |
+| **Enable** | Sets `enabled = TRUE` and recomputes `next_run_at` |
+| **Disable** | Sets `enabled = FALSE` |
+
+## Retry and Dead-Letter Policy
+
+1. On failure (A2A returns `status: failed` or throws exception):
+   - `retry_count` is incremented
+   - `next_run_at` is set to `now() + retry_delay_seconds`
+   - `last_status` is set to `failed`
+
+2. When `retry_count >= max_retries`:
+   - Job is disabled (`enabled = FALSE`)
+   - `last_status` is set to `dead_letter`
+   - A warning is logged
+
+3. On success after failures:
+   - `retry_count` is reset to `0`
+
+## Catch-Up Policy
+
+If the scheduler restarts after downtime, overdue jobs (where `next_run_at` is in the past) are executed **once** on the next tick. The `next_run_at` is then recomputed from the current time using the cron expression — missed intervals are not replayed.
+
+## Concurrency Control
+
+The scheduler uses `SELECT ... FOR UPDATE SKIP LOCKED` when fetching due jobs. This ensures that if multiple scheduler instances run simultaneously (e.g., during rolling restarts), each job is picked by at most one instance.
+
+## Admin UI
+
+Navigate to `/admin/scheduler` to view all scheduled jobs. Available actions:
+
+- **Запустити** (Run Now) — Sets `next_run_at = now()` so the job runs on the next tick
+- **Увімкнути / Вимкнути** (Toggle) — Enables or disables the job
+
+## Internal API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `POST /api/v1/internal/scheduler/{id}/run` | POST | Trigger job immediately |
+| `POST /api/v1/internal/scheduler/{id}/toggle` | POST | Toggle enabled state |
+
+Both endpoints require `ROLE_ADMIN`.
+
+Toggle request body:
+```json
+{"enabled": true}
+```
+
+## Docker Service
+
+The scheduler runs as a separate Docker Compose service:
+
+```yaml
+core-scheduler:
+  command: ["php", "bin/console", "scheduler:run"]
+  restart: unless-stopped
+  depends_on:
+    - core
+```
+
+The service restarts automatically on crash. Graceful shutdown is handled via `SIGTERM`/`SIGINT` — the current tick completes before the process exits.
+
+## One-Shot Jobs
+
+Jobs with `cron_expression: null` are one-shot: they run once and are then disabled (`enabled = FALSE`). Use these for initialization tasks that should run once after agent install.
