@@ -103,9 +103,18 @@ clear install, upgrade, rollback, and verification workflow.
 
 ## Tester
 
-- **Status**: pending
-- **Test results**: —
-- **New tests written**: —
+- **Status**: completed
+- **Apps tested**: `apps/core/`, `apps/hello-agent/`, `apps/knowledge-agent/`
+- **Test results**:
+  - `make test` (`apps/core/`): passed — 225 passed, 0 failed, 0 skipped
+  - `make hello-test` (`apps/hello-agent/`): passed — 21 passed, 0 failed, 0 skipped
+  - `make knowledge-test` (`apps/knowledge-agent/`): passed — 36 passed, 0 failed, 0 skipped
+  - `make conventions-test`: failed when `AGENT_URL` is unset in Makefile path (`AGENT_URL=` defaults to `http://localhost:80` and returns non-agent routes)
+  - Conventions rerun with explicit endpoint: passed — `AGENT_URL=http://localhost:18085 npx codeceptjs run --steps` => 17 passed, 0 failed, 0 skipped
+- **New tests written**: none
+- **Tests updated and why**:
+  - `tests/agent-conventions/tests/a2a_observability_test.js` — replaced `hello.greet` calls with `hello.unknown` in correlation-ID scenarios to remove LLM latency flakiness while preserving TC-03 envelope/request_id assertions
+  - `tests/agent-conventions/package-lock.json` — added missing nested `version` fields for optional detox/react-native entries so `npm install` works with npm 11 (`Invalid Version` fix)
 
 ## Documenter
 
@@ -115,3 +124,4 @@ clear install, upgrade, rollback, and verification workflow.
 ---
 
 - **Commit (coder)**: 5508713
+- **Commit (validator)**: f53ce0e
