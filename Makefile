@@ -1,8 +1,10 @@
 AGENT_FILES := $(sort $(wildcard compose.agent-*.yaml))
+EXTERNAL_AGENT_FILES := $(sort $(wildcard compose.fragments/*.yaml))
 OVERRIDE_FILE := $(firstword $(wildcard compose.override.yaml compose.override.yml))
 OVERRIDE_COMPOSE := $(if $(OVERRIDE_FILE),-f $(OVERRIDE_FILE),)
 COMPOSE_FILES := -f compose.yaml -f compose.core.yaml \
         $(addprefix -f ,$(AGENT_FILES)) \
+        $(addprefix -f ,$(EXTERNAL_AGENT_FILES)) \
         -f compose.langfuse.yaml -f compose.openclaw.yaml \
         -f compose.slides.yaml \
         $(OVERRIDE_COMPOSE)
@@ -24,6 +26,7 @@ E2E_BASE_URL ?= http://localhost:18080
         dev-reporter-install dev-reporter-migrate dev-reporter-test dev-reporter-analyse dev-reporter-cs-check dev-reporter-cs-fix \
         dev-agent-install dev-agent-migrate dev-agent-test dev-agent-analyse dev-agent-cs-check dev-agent-cs-fix \
         agent-discover conventions-test \
+        external-agent-list external-agent-up external-agent-down external-agent-clone \
         sync-skills pipeline pipeline-batch
 
 help:
@@ -80,6 +83,10 @@ help:
 		'make news-migrate         Run Alembic migrations for news-maker-agent (stack must be up)' \
 		'make agent-discover       Run Traefik-based agent discovery and refresh registry' \
 		'make conventions-test     Run Codecept.js agent-convention compliance tests (AGENT_URL required)' \
+		'make external-agent-list  List detected external agent compose fragments in compose.fragments/' \
+		'make external-agent-up name=X    Start/update a named external agent (e.g. make external-agent-up name=my-agent)' \
+		'make external-agent-down name=X  Stop a named external agent (e.g. make external-agent-down name=my-agent)' \
+		'make external-agent-clone repo=URL name=X  Clone an agent repo into projects/<name> (e.g. make external-agent-clone repo=https://github.com/org/my-agent name=my-agent)' \
 		'make e2e                  Run Codecept.js + Playwright E2E tests (full isolated stack)' \
 		'make e2e-smoke            Run smoke-only E2E tests (API checks, no browser)'
 
@@ -164,6 +171,24 @@ agent-up:
 
 agent-down:
 	$(COMPOSE) stop $(name)
+
+# ── External Agent Targets ───────────────────────────────────────────────────
+
+external-agent-list:
+	@./scripts/external-agent.sh list
+
+external-agent-up:
+	@test -n "$(name)" || (echo "Usage: make external-agent-up name=<agent-name>" && exit 1)
+	@./scripts/external-agent.sh up "$(name)"
+
+external-agent-down:
+	@test -n "$(name)" || (echo "Usage: make external-agent-down name=<agent-name>" && exit 1)
+	@./scripts/external-agent.sh down "$(name)"
+
+external-agent-clone:
+	@test -n "$(repo)" || (echo "Usage: make external-agent-clone repo=<git-url> name=<agent-name>" && exit 1)
+	@test -n "$(name)" || (echo "Usage: make external-agent-clone repo=<git-url> name=<agent-name>" && exit 1)
+	@./scripts/external-agent.sh clone "$(repo)" "$(name)"
 
 up-observability:
 	$(COMPOSE) up -d langfuse-web langfuse-worker
