@@ -76,13 +76,43 @@
 - [x] 7.4 Functional test: `AgentInstallSchedulerTest` — installing agent with `scheduled_jobs` in manifest creates rows in `scheduled_jobs` table
 - [x] 7.5 Functional test: `AgentUninstallSchedulerTest` — uninstalling agent removes its scheduled jobs (combined in `AgentInstallSchedulerTest`)
 
-## 8. Documentation
+## 8. Execution Logs
 
-- [x] 8.1 Create `docs/scheduler.md` — developer-facing doc: how the scheduler works, manifest format for `scheduled_jobs`, retry/dead-letter policy, admin UI usage
-- [x] 8.2 Update `docs/agent-requirements/storage-provisioning.md` — add `scheduled_jobs` section
+- [x] 8.1 Create migration `Version20260311000002.php` for `scheduler_job_logs` table with FK, indexes
+- [x] 8.2 Create `SchedulerJobLogRepository.php` + `SchedulerJobLogRepositoryInterface.php` — logStart, logFinish, findByJob, countByJob
+- [x] 8.3 Modify `SchedulerService::tick()` — logStart before A2A call, logFinish after (success + failure + exception)
+- [x] 8.4 Create `SchedulerJobLogsController.php` — `/admin/scheduler/{id}/logs` with pagination
+- [x] 8.5 Create `logs.html.twig` — log viewer with status badges, duration, error tooltips, pagination
+- [x] 8.6 Create `SchedulerJobLogsApiController.php` — `GET /api/v1/internal/scheduler/{id}/logs` JSON endpoint
+- [x] 8.7 Add "Логи" link per job row in `index.html.twig`
 
-## 9. Quality Checks
+## 9. Visual Cron Builder
 
-- [x] 9.1 Run `phpstan analyse` — 2 pre-existing errors in unrelated files; 0 new errors
-- [x] 9.2 Run `php-cs-fixer check` — no style violations
-- [x] 9.3 Run `codecept run` — all 214 tests pass (745 assertions)
+- [x] 9.1 Add Vue 3 via esm.sh importmap — loaded only on scheduler page via lazy `initCronBuilder()`
+- [x] 9.2 Add @vue-js-cron/light v5.1.1 via esm.sh (bundle-deps, external=vue) + CSS from esm.sh CDN
+- [x] 9.3 Modify create modal: toggle "Візуальний"/"Текстовий" button, `<div id="cron-builder-app">` mount point, bidirectional sync between Vue component and `#cj_cron` text input
+- [x] 9.4 Add CSS overrides for dark admin theme (transparent background, themed selects, border colors)
+
+## 10. Documentation
+
+- [x] 10.1 Create `docs/scheduler.md` — developer-facing doc: how the scheduler works, manifest format for `scheduled_jobs`, retry/dead-letter policy, admin UI usage
+- [x] 10.2 Update `docs/agent-requirements/storage-provisioning.md` — add `scheduled_jobs` section
+- [x] 10.3 Update `docs/scheduler.md` — added execution logs section, log table schema, log viewer, API endpoints
+- [x] 10.4 Update `docs/scheduler.md` — added visual cron builder section, stale detection, job sources
+
+## 11. Tests
+
+- [x] 11.1 Unit test: `SchedulerServiceTest::testTickLogsStartAndCompletedOnSuccess` — verifies logStart + logFinish('completed')
+- [x] 11.2 Unit test: `SchedulerServiceTest::testTickLogsFailedOnException` — verifies logFinish('failed') on exception
+- [x] 11.3 Unit test: `SchedulerServiceTest::testTickLogsFailedOnAgentFailedStatus` — verifies logFinish('failed') on agent status=failed
+- [x] 11.4 E2E tests: all 10 existing scheduler tests pass (log page and cron builder tested via integration)
+
+## 12. Quality Checks
+
+- [x] 12.1 Run `phpstan analyse` — 0 new errors
+- [x] 12.2 Run `php-cs-fixer check` — no style violations
+- [x] 12.3 Run `codecept run` — all tests pass
+- [x] 12.4 Run `phpstan analyse` — 0 errors (new log code included)
+- [x] 12.5 Run `php-cs-fixer check` — 0 violations (151 files)
+- [x] 12.6 Run `codecept run Unit Scheduler` — 19 tests, 99 assertions, all pass
+- [x] 12.7 Run E2E tests — 10 scheduler tests pass

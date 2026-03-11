@@ -120,6 +120,84 @@ The platform SHALL provide an admin page at `/admin/scheduler` showing all sched
 - **WHEN** an admin toggles a job's enabled state
 - **THEN** the job's `enabled` flag is updated and the change takes effect on the next scheduler tick
 
+### Requirement: Scheduler Execution Logs
+
+The platform SHALL record every job execution attempt in a `scheduler_job_logs` table, capturing start time, finish time, status, error details, payload sent, and response received. Each log entry SHALL reference the originating job.
+
+#### Scenario: Successful execution is logged
+
+- **WHEN** the scheduler executes a job successfully
+- **THEN** a log entry is created with `status = 'completed'`, `started_at`, `finished_at`, the payload sent to the agent, and the response received
+
+#### Scenario: Failed execution is logged
+
+- **WHEN** a job execution fails (A2A error or exception)
+- **THEN** a log entry is created with `status = 'failed'`, `started_at`, `finished_at`, and `error_message` containing the failure details
+
+#### Scenario: Log entry is created before execution starts
+
+- **WHEN** the scheduler picks a due job for execution
+- **THEN** a log entry with `status = 'running'` and `started_at` is created before the A2A call is made
+- **AND** the entry is updated with final status and `finished_at` after the call completes
+
+#### Scenario: Logs persist when job is deleted
+
+- **WHEN** a scheduled job is deleted (agent uninstall or admin deletion)
+- **THEN** existing log entries remain in the database with `job_id = NULL` (FK SET NULL) for audit trail
+
+### Requirement: Scheduler Log Viewer Admin Page
+
+The platform SHALL provide an admin page at `/admin/scheduler/{id}/logs` showing the execution history of a specific job, with pagination and status badges.
+
+#### Scenario: Admin views job execution history
+
+- **WHEN** an authenticated admin navigates to `/admin/scheduler/{id}/logs`
+- **THEN** a table is displayed with columns: Started, Finished, Duration, Status (badge), Error (truncated), Payload
+- **AND** results are paginated with 50 entries per page
+
+#### Scenario: Admin navigates to logs from scheduler dashboard
+
+- **WHEN** an admin clicks the "Логи" link for a job on `/admin/scheduler`
+- **THEN** the browser navigates to `/admin/scheduler/{id}/logs` for that job
+
+#### Scenario: Log status badges match job outcomes
+
+- **WHEN** a log entry has `status = 'completed'`
+- **THEN** it displays a green/info badge
+- **WHEN** a log entry has `status = 'failed'`
+- **THEN** it displays a red/error badge
+- **WHEN** a log entry has `status = 'running'`
+- **THEN** it displays a yellow/warning badge (stuck or in-progress execution)
+
+### Requirement: Visual Cron Builder
+
+The scheduler admin UI SHALL provide a visual cron expression builder alongside the classic text input, allowing non-technical users to configure cron schedules via a clickable interface. The builder SHALL use @vue-js-cron/light loaded via CDN.
+
+#### Scenario: Visual builder is available in create modal
+
+- **WHEN** an admin opens the "Створити завдання" modal
+- **THEN** a visual cron builder is displayed alongside the text input for cron expression
+- **AND** the builder provides clickable controls for minute, hour, day-of-month, month, and day-of-week
+
+#### Scenario: Builder and text input are bidirectionally synced
+
+- **WHEN** the user changes the cron expression via the visual builder
+- **THEN** the text input updates to reflect the new expression
+- **WHEN** the user types a valid cron expression in the text input
+- **THEN** the visual builder updates to reflect the typed expression
+
+#### Scenario: Mode toggle between visual and text
+
+- **WHEN** the user clicks the mode toggle button
+- **THEN** the UI switches between "Візуальний" (visual builder) and "Текстовий" (classic text input) modes
+- **AND** the cron expression value is preserved across mode switches
+
+#### Scenario: Vue is loaded only on scheduler page
+
+- **WHEN** the admin navigates to any page other than `/admin/scheduler`
+- **THEN** Vue 3 and @vue-js-cron/light scripts are NOT loaded
+- **AND** no global JavaScript state is affected
+
 ### Requirement: Scheduler Docker Service
 
 The scheduler SHALL run as a separate Docker Compose service (`core-scheduler`) using the same image as core, with restart policy `unless-stopped`.

@@ -19,3 +19,4 @@ Cross-cutting checks that span all agents.
 | P-11 | Langfuse service in compose | Grep compose.yaml for langfuse | Present | — | Missing |
 | P-12 | Launch instructions exist | Glob `docs/local-dev.md` or `LOCAL_DEV.md` | Exists | — | Missing |
 | P-13 | No direct agent-to-agent HTTP calls | Grep all `apps/*-agent/` source dirs for `http://<other-agent-service-name>` patterns. Agents must communicate only via `PLATFORM_CORE_URL` A2A gateway. | No matches across all agents | — | Direct cross-agent URL found |
+| P-14 | No stale scheduled jobs | For each row in `scheduled_jobs`, verify the agent exists in the registry and the `skill_id` exists in the agent's manifest `skills` array. Check via admin UI at `/admin/scheduler` — stale jobs show a ⚠ warning icon and red `stale` badge. | No stale jobs | — | Stale jobs found (agent removed or skill renamed) |

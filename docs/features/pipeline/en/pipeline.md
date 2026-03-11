@@ -119,7 +119,7 @@ The first step is the **Planner** agent (Sonnet, 5 min limit). It analyzes the t
 ### Summarizer (15 min)
 - **Model**: GPT-5.4
 - **Role**: writes the final markdown summary for every agent that actually worked on the task
-- **Output**: `task/<timestamp>-<task-slug>.md`
+- **Output**: `tasks/summary/<timestamp>-<task-slug>.md`
 - **Includes**: what each agent did, difficulties, remaining fixes, and one proposed follow-up task
 
 ## Auto-Audit for Agent Tasks
@@ -262,7 +262,7 @@ Result: COMPLETED or FAILED at <agent>
     ↓
 Report: .opencode/pipeline/reports/<timestamp>.md
     ↓
-Task summary: task/<timestamp>-<task-slug>.md
+Task summary: tasks/summary/<timestamp>-<task-slug>.md
 ```
 
 ### Checkpoint & Resume

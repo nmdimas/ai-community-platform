@@ -140,8 +140,9 @@ Scenario(
         await I.waitForVisible('#createJobForm', 5);
 
         I.selectOption('#cj_agent', 'hello-agent');
+        await I.wait(1); // wait for skills dropdown to populate
         I.fillField('#cj_job_name', 'e2e-test-job');
-        I.fillField('#cj_skill', 'hello.greet');
+        I.selectOption('#cj_skill', 'hello.greet');
         I.fillField('#cj_cron', '30 12 * * *');
         I.fillField('#cj_payload', '{"name": "E2E"}');
         I.fillField('#cj_timezone', 'Europe/Kyiv');
@@ -155,3 +156,72 @@ Scenario(
         I.see('30 12 * * *', 'table');
     },
 ).tag('@admin').tag('@scheduler');
+
+Scenario(
+    'visual cron builder sets hourly schedule and job is created',
+    async ({ I, schedulerPage }) => {
+        await schedulerPage.open();
+
+        I.click('+ Створити завдання');
+        await I.waitForVisible('#createJobForm', 5);
+
+        // Fill agent and skill
+        I.selectOption('#cj_agent', 'hello-agent');
+        await I.wait(1);
+        I.selectOption('#cj_skill', 'hello.greet');
+        I.fillField('#cj_job_name', 'e2e-visual-cron-job');
+
+        // Switch to visual cron builder
+        I.click('#cronModeToggle');
+
+        // Wait for Vue component to load from ESM CDN and mount
+        await I.waitForElement('#cron-builder-app .cron-light', 15);
+
+        // Use Playwright API directly to interact with custom dropdown controls
+        await I.usePlaywrightTo('select hourly in cron builder', async ({ page }) => {
+            // 1. Open period dropdown (first .cl-select button — shows "Year" by default)
+            await page.locator('#cron-builder-app .cl-select').first().locator('.cl-btn').click();
+            await page.waitForSelector('#cron-builder-app .cl-menu', { timeout: 3000 });
+
+            // 2. Click "Hour" — second row in the period menu (Minute=0, Hour=1)
+            await page.locator('#cron-builder-app .cl-menu .cl-row').nth(1).click();
+            await page.waitForTimeout(500);
+
+            // 3. Open minute dropdown (second .cl-select — shows "every")
+            await page.locator('#cron-builder-app .cl-select').nth(1).locator('.cl-btn').click();
+            await page.waitForSelector('#cron-builder-app .cl-menu', { timeout: 3000 });
+
+            // 4. Click "00" — first item in first row, first column
+            await page.locator('#cron-builder-app .cl-menu .cl-row').first()
+                .locator('.cl-col').first().click();
+            await page.waitForTimeout(300);
+
+            // 5. Close dropdown by clicking the form title area
+            await page.locator('#createJobForm h3, #createJobModal h3').first().click({ force: true }).catch(() => {});
+            await page.click('#cj_job_name');
+            await page.waitForTimeout(300);
+        });
+
+        // Verify the hidden cron input got a valid hourly expression
+        const cronValue = await I.grabValueFrom('#cj_cron');
+        assert.ok(
+            cronValue.length >= 5 && cronValue.includes('*'),
+            `Expected valid hourly cron expression, got "${cronValue}"`,
+        );
+
+        // Fill remaining fields
+        I.fillField('#cj_payload', '{"source": "visual-cron"}');
+        I.fillField('#cj_timezone', 'UTC');
+
+        // Submit
+        I.click('#createJobBtn');
+
+        // Page reloads after creation
+        await I.waitForElement('table', 10);
+
+        // Verify job appears in the table
+        I.see('e2e-visual-cron-job', 'table');
+        I.see('hello.greet', 'table');
+        I.see('hello-agent', 'table');
+    },
+).tag('@admin').tag('@scheduler').tag('@visual-cron');

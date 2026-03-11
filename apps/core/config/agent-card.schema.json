@@ -127,6 +127,24 @@
     "storage": {
       "type": "object",
       "description": "Platform extension: storage requirements (postgres, redis, opensearch)"
+    },
+    "scheduled_jobs": {
+      "type": "array",
+      "description": "Platform extension: cron jobs registered in the central scheduler on agent install",
+      "items": {
+        "type": "object",
+        "required": ["name", "skill_id"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "description": "Unique job name within the agent" },
+          "skill_id": { "type": "string", "minLength": 1, "description": "A2A skill ID to invoke (must exist in skills array)" },
+          "cron_expression": { "type": "string", "description": "Standard 5-field cron. Null/omitted = one-shot job" },
+          "payload": { "type": "object", "description": "JSON payload passed to the skill" },
+          "max_retries": { "type": "integer", "minimum": 0, "default": 3, "description": "Max retry attempts on failure" },
+          "retry_delay_seconds": { "type": "integer", "minimum": 1, "default": 60, "description": "Seconds between retries" },
+          "timezone": { "type": "string", "default": "UTC", "description": "Timezone for cron evaluation" }
+        },
+        "additionalProperties": false
+      }
     }
   }
 }

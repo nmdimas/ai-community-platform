@@ -8,7 +8,7 @@ A built-in Platform Coder Agent will wrap the existing pipeline logic in a PHP/S
 
 ## What Changes
 
-- **New capability: `coder-agent-pipeline`** -- PHP service that orchestrates the 5-stage pipeline (architect, coder, validator, tester, documenter) with stage gate verification, retry policies, and model fallback chains via LiteLLM gateway
+- **New capability: `coder-agent-pipeline`** -- PHP service that orchestrates the pipeline stages (architect, coder, validator, tester, documenter, summarizer, plus optional auditor) with stage gate verification, retry policies, and model fallback chains via LiteLLM gateway
 - **New capability: `coder-agent-admin`** -- Admin panel pages for task CRUD, priority management, pipeline monitoring dashboard with real-time progress (SSE), log viewing, and task templates (ADR, HLD, feature spec, bug fix, refactor)
 - **New capability: `coder-agent-worker`** -- Background worker management: spawn, monitor, and kill workers; priority queue with configurable concurrency; task state machine (todo/queued/in-progress/done/failed)
 - **New capability: `coder-agent-worktree`** -- Git worktree lifecycle management for worker isolation: create, track, and cleanup worktrees per task

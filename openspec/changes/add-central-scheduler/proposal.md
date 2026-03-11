@@ -22,6 +22,14 @@ Currently only news-maker-agent has scheduling via its embedded APScheduler, whi
 - **New Docker service entry** in `compose.core.yaml` — scheduler worker process
 - **Manifest schema extension** — new optional `scheduled_jobs` array in agent manifests
 
+- **New DB table** `scheduler_job_logs` in core — stores execution history: job reference, start/finish timestamps, status, error message, payload sent, response received
+- **New admin page** `/admin/scheduler/{id}/logs` — execution log viewer per job with status badges, timing, and error details
+- **Modified admin page** `/admin/scheduler` — "Logs" link per job row; latest log status visible inline
+- **New internal API** `GET /api/v1/internal/scheduler/{id}/logs` — paginated log retrieval
+- **Modified** `SchedulerService::tick()` — writes a log entry before and after each job execution
+- **New Doctrine migration** — creates `scheduler_job_logs` table
+- **Modified create/edit modal** — adds visual cron builder (@vue-js-cron/light via CDN) alongside classic text input, allowing non-technical users to configure schedules via clickable UI
+
 ## Impact
 
 - Affected specs: new capability `job-scheduling`; modifies `hello-world-agent` spec (manifest schema extension)
@@ -34,4 +42,11 @@ Currently only news-maker-agent has scheduling via its embedded APScheduler, whi
   - `apps/core/src/Controller/Admin/SchedulerController.php` (new)
   - `apps/core/migrations/Version20260310000001.php` (new)
   - `compose.core.yaml`
+- Affected code (new):
+  - `apps/core/src/Scheduler/SchedulerJobLogRepository.php` (new)
+  - `apps/core/src/Controller/Admin/SchedulerJobLogsController.php` (new)
+  - `apps/core/src/Controller/Api/Internal/SchedulerJobLogsApiController.php` (new)
+  - `apps/core/templates/admin/scheduler/logs.html.twig` (new)
+  - `apps/core/templates/admin/scheduler/index.html.twig` (modified — cron builder, log links)
+  - `apps/core/src/Scheduler/SchedulerService.php` (modified — log writes)
 - Does NOT remove APScheduler from news-maker-agent (separate future migration)

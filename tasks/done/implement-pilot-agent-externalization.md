@@ -1,3 +1,4 @@
+<!-- batch: 20260311_104341 | status: pass | duration: 1069s | branch: pipeline/implement-pilot-agent-externalization -->
 # Implement pilot agent externalization
 
 Implement the approved OpenSpec change `refactor-agents-into-external-repositories` phase 2 using

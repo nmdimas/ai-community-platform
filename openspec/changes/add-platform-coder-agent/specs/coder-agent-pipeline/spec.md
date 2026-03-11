@@ -2,18 +2,18 @@
 
 ### Requirement: Multi-Stage Pipeline Execution
 
-The system SHALL execute coding tasks through a sequential 5-stage pipeline: architect, coder, validator, tester, documenter. Each stage SHALL be executed as a subprocess calling an AI coding tool via the LiteLLM gateway. The orchestrator SHALL capture all stdout/stderr output and persist it to the task log. Each stage SHALL have a configurable timeout with a default matching the existing pipeline configuration (architect: 45min, coder: 60min, validator: 20min, tester: 30min, documenter: 15min).
+The system SHALL execute coding tasks through a sequential pipeline with architect, coder, validator, tester, summarizer, and optional auditor/documenter stages. Each stage SHALL be executed as a subprocess calling an AI coding tool via the LiteLLM gateway. The orchestrator SHALL capture all stdout/stderr output and persist it to the task log. Each stage SHALL have a configurable timeout with defaults matching the existing pipeline configuration (architect: 45min, coder: 60min, validator: 20min, tester: 30min, documenter: 15min, summarizer: 15min).
 
 #### Scenario: Full pipeline execution succeeds
-- **WHEN** a task with all 5 stages enabled is dequeued by a worker
-- **THEN** the pipeline orchestrator runs architect, coder, validator, tester, and documenter in sequence
+- **WHEN** a task with all standard stages enabled is dequeued by a worker
+- **THEN** the pipeline orchestrator runs architect, coder, validator, tester, and summarizer in sequence
 - **AND** each stage passes its gate check before the next stage begins
 - **AND** the task status transitions from `in_progress` to `done`
 - **AND** all stage logs are persisted to `coder_task_logs`
 
 #### Scenario: Pipeline with skipped stages
-- **WHEN** a task has `pipeline_config.skip_stages` set to `["architect", "documenter"]`
-- **THEN** only coder, validator, and tester stages are executed
+- **WHEN** a task has `pipeline_config.skip_stages` set to `["architect", "tester"]`
+- **THEN** only coder, validator, and summarizer stages are executed
 - **AND** skipped stages are recorded as `skipped` in `stage_progress`
 
 ### Requirement: Stage Gate Verification
@@ -21,9 +21,9 @@ The system SHALL execute coding tasks through a sequential 5-stage pipeline: arc
 The system SHALL run a gate check after each pipeline stage completes. Each gate check SHALL verify that the stage produced valid output. If a gate check fails, the stage SHALL be retried up to `MAX_RETRIES` times (default: 2). If all retries fail, the task SHALL move to `failed` status with the error message recorded.
 
 #### Scenario: Gate check passes
-- **WHEN** the validator stage completes and PHPStan reports zero errors and CS Fixer reports no violations
+- **WHEN** the summarizer stage completes and the final markdown report exists in `tasks/summary/`
 - **THEN** the gate check passes
-- **AND** the pipeline proceeds to the tester stage
+- **AND** the task keeps the final pipeline status established by earlier stages
 
 #### Scenario: Gate check fails with retries remaining
 - **WHEN** the coder stage completes but the gate check detects PHP syntax errors
@@ -55,6 +55,21 @@ The system SHALL select an AI model for each pipeline stage based on a configura
 #### Scenario: Per-task model override
 - **WHEN** a task has `pipeline_config.model_overrides.coder` set to `claude-opus-4-6`
 - **THEN** the coder stage uses `claude-opus-4-6` as the primary model instead of the default
+
+### Requirement: Final Task Summary Artifact
+
+The system SHALL generate a final markdown summary artifact for each pipeline run in the `tasks/summary/` directory. The summary SHALL describe which agents actually worked on the task, what each agent produced, any difficulties or blockers that were observed, outstanding fixes or follow-up work, and one concrete proposed next task. The summarizer stage SHALL use GPT-5.4 as the default model.
+
+#### Scenario: Successful run writes task summary
+- **WHEN** the summarizer stage completes after a successful pipeline run
+- **THEN** a markdown file is written to `tasks/summary/<timestamp>-<task-slug>.md`
+- **AND** the file includes one section per completed agent
+- **AND** the file ends with one proposed follow-up task
+
+#### Scenario: Failed run still writes partial task summary
+- **WHEN** the pipeline fails before the last implementation stage completes
+- **THEN** the summarizer still runs in best-effort mode using the completed agents, checkpoint, handoff, and logs
+- **AND** the markdown file clearly identifies the failing agent and unfinished work
 
 ### Requirement: Inter-Stage Handoff
 

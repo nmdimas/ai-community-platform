@@ -25,7 +25,8 @@
 - [ ] 2.5 Implement retry logic per stage with configurable max retries and backoff
 - [ ] 2.6 Implement handoff file generation between stages (passing context from one stage to the next)
 - [ ] 2.7 Persist stage progress and logs to `coder_task_logs` table
-- [ ] 2.8 Add unit tests for pipeline orchestration, gate checks, and retry logic
+- [ ] 2.8 Implement final summarizer stage that writes `tasks/summary/<timestamp>-<task-slug>.md` with per-agent outcome, difficulties, remaining fixes, and one follow-up task proposal
+- [ ] 2.9 Add unit tests for pipeline orchestration, gate checks, and retry logic
 
 ## 3. Git Worktree Management
 
@@ -81,8 +82,9 @@
 - [ ] 8.2 Implement coder gate: verify code changes present, no PHP syntax errors
 - [ ] 8.3 Implement validator gate: run `phpstan analyse` at level 8, run `php-cs-fixer check`
 - [ ] 8.4 Implement tester gate: run `codecept run` and verify all suites pass
-- [ ] 8.5 Implement documenter gate: verify documentation files were created or updated
-- [ ] 8.6 Add configurable gate strictness (warn vs fail) per task
+- [ ] 8.5 Implement summarizer gate: verify the final markdown report exists in `tasks/summary/` and references all completed agents
+- [ ] 8.6 Implement documenter gate: verify documentation files were created or updated
+- [ ] 8.7 Add configurable gate strictness (warn vs fail) per task
 
 ## 9. Documentation
 

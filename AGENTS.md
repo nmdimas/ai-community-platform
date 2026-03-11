@@ -57,6 +57,36 @@ Rules:
 - Run `make sync-skills` after pulling changes or editing skills
 - After `git clone`, run `make sync-skills` to populate agent-specific skill directories
 
+## Scheduled Jobs (Cron Tasks)
+
+Agents can declare recurring or one-shot jobs that the platform's central scheduler executes automatically via A2A.
+
+To add scheduled jobs, include a `scheduled_jobs` array in the agent's manifest (`ManifestController`):
+
+```json
+{
+  "scheduled_jobs": [
+    {
+      "name": "daily-digest",
+      "skill_id": "myagent.digest",
+      "cron_expression": "0 9 * * *",
+      "payload": {"channel": "general"},
+      "max_retries": 3,
+      "retry_delay_seconds": 120,
+      "timezone": "Europe/Kyiv"
+    }
+  ]
+}
+```
+
+Rules:
+- `skill_id` **must** reference an existing skill from the same agent's `skills` array
+- `cron_expression` uses standard 5-field cron; omit for one-shot jobs (run once after install)
+- Jobs are registered automatically on agent install and removed on uninstall
+- Admin can also create jobs manually via the scheduler UI at `/admin/scheduler`
+- If an agent updates and removes a skill that a job references, the job is flagged as **stale** in the admin UI
+- See `docs/scheduler.md` for full documentation and `apps/core/config/agent-card.schema.json` for the schema
+
 ## Working Expectation
 
 When multiple agents are used on the same project:

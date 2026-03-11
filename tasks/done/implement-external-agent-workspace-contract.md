@@ -1,3 +1,4 @@
+<!-- batch: 20260311_104341 | status: pass | duration: 809s | branch: pipeline/implement-external-agent-workspace-contract -->
 # Implement external agent workspace contract
 
 Implement the approved OpenSpec change `refactor-agents-into-external-repositories` phase 1.

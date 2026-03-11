@@ -112,12 +112,65 @@ If the scheduler restarts after downtime, overdue jobs (where `next_run_at` is i
 
 The scheduler uses `SELECT ... FOR UPDATE SKIP LOCKED` when fetching due jobs. This ensures that if multiple scheduler instances run simultaneously (e.g., during rolling restarts), each job is picked by at most one instance.
 
+## Execution Logs
+
+Every job execution is recorded in the `scheduler_job_logs` table:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | UUID | Primary key |
+| `job_id` | UUID | FK to `scheduled_jobs.id` (SET NULL on delete) |
+| `agent_name` | VARCHAR(64) | Agent name (denormalized for audit trail) |
+| `skill_id` | VARCHAR(128) | Skill invoked |
+| `job_name` | VARCHAR(128) | Job name (denormalized) |
+| `payload_sent` | JSONB | Payload sent to the agent |
+| `response_received` | JSONB | Response from the agent |
+| `status` | VARCHAR(32) | `running`, `completed`, `failed` |
+| `error_message` | TEXT | Error details on failure |
+| `started_at` | TIMESTAMPTZ | When execution started |
+| `finished_at` | TIMESTAMPTZ | When execution finished |
+
+Indexes: `(job_id, created_at DESC)` for per-job queries, `(created_at)` for retention.
+
+Log entries are created before the A2A call (`status = 'running'`) and updated after completion. If a job is deleted, existing log entries remain with `job_id = NULL`.
+
+### Log Viewer
+
+Navigate to `/admin/scheduler/{id}/logs` to view execution history for a specific job. The log viewer shows:
+- Start/finish timestamps and duration
+- Status badges (completed, failed, running)
+- Error messages (truncated with hover tooltip)
+- Payload sent
+
+Pagination: 50 entries per page.
+
 ## Admin UI
 
 Navigate to `/admin/scheduler` to view all scheduled jobs. Available actions:
 
+- **Логи** — View execution history for the job
 - **Запустити** (Run Now) — Sets `next_run_at = now()` so the job runs on the next tick
 - **Увімкнути / Вимкнути** (Toggle) — Enables or disables the job
+- **Видалити** (Delete) — Remove admin-created jobs (manifest jobs cannot be deleted)
+
+### Visual Cron Builder
+
+When creating a job, click **"Візуальний"** to switch from the text cron input to a visual builder powered by `@vue-js-cron/light`. The builder provides clickable controls for minute, hour, day-of-month, month, and day-of-week. Changes in the visual builder sync bidirectionally with the text input.
+
+CDN dependencies (loaded only on the scheduler page):
+- Vue 3 via `esm.sh`
+- `@vue-js-cron/light` v5.1.1 via `esm.sh`
+
+### Stale Job Detection
+
+If an agent updates its manifest and removes a skill that a scheduled job references, the job is flagged as **stale** in the admin UI:
+- Row highlighted in red with a ⚠ warning icon
+- Status badge shows "stale"
+- Tooltip explains the reason (agent missing or skill missing)
+
+### Job Sources
+
+Jobs have a `source` column: `manifest` (from agent manifest, cannot be deleted) or `admin` (created via admin UI, can be deleted).
 
 ## Internal API
 
@@ -125,8 +178,12 @@ Navigate to `/admin/scheduler` to view all scheduled jobs. Available actions:
 |----------|--------|-------------|
 | `POST /api/v1/internal/scheduler/{id}/run` | POST | Trigger job immediately |
 | `POST /api/v1/internal/scheduler/{id}/toggle` | POST | Toggle enabled state |
+| `DELETE /api/v1/internal/scheduler/{id}` | DELETE | Delete admin-created job |
+| `POST /api/v1/internal/scheduler/create` | POST | Create a new admin job |
+| `GET /api/v1/internal/scheduler/{id}/logs` | GET | Paginated execution logs |
+| `GET /api/v1/internal/agents/{name}/skills` | GET | List agent skills from manifest |
 
-Both endpoints require `ROLE_ADMIN`.
+All endpoints require `ROLE_ADMIN`.
 
 Toggle request body:
 ```json

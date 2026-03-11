@@ -2,7 +2,7 @@
 
 ## Context
 
-The project has a mature bash-based multi-agent pipeline (`scripts/pipeline.sh`) that orchestrates 5 AI coding agents in sequence: architect (creates OpenSpec proposals), coder (implements code), validator (runs PHPStan + CS Fixer), tester (runs tests), and documenter (writes docs). A batch runner (`pipeline-batch.sh`) adds folder-based kanban (todo/in-progress/done/failed) with parallel workers via git worktrees. A TUI monitor (`pipeline-monitor.sh`) provides terminal-based observation.
+The project has a mature bash-based multi-agent pipeline (`scripts/pipeline.sh`) that orchestrates AI coding agents in sequence: architect (creates OpenSpec proposals), coder (implements code), optional auditor (checks compliance), validator (runs PHPStan + CS Fixer), tester (runs tests), optional documenter (writes docs), and summarizer (writes the final task markdown). A batch runner (`pipeline-batch.sh`) adds folder-based kanban (todo/in-progress/done/failed) with parallel workers via git worktrees. A TUI monitor (`pipeline-monitor.sh`) provides terminal-based observation.
 
 This design wraps that pipeline logic into a first-class platform service accessible from the admin panel, with proper database-backed state management, real-time monitoring, and A2A integration.
 
@@ -53,11 +53,15 @@ Admin Panel UI
     |         |         +---> Gate Check
     |         |         +---> Stage 2: Coder (LiteLLM)
     |         |         +---> Gate Check
-    |         |         +---> Stage 3: Validator (PHPStan/CS)
+    |         |         +---> Stage 3: Auditor (optional)
     |         |         +---> Gate Check
-    |         |         +---> Stage 4: Tester (Codeception)
+    |         |         +---> Stage 4: Validator (PHPStan/CS)
     |         |         +---> Gate Check
-    |         |         +---> Stage 5: Documenter (LiteLLM)
+    |         |         +---> Stage 5: Tester (Codeception)
+    |         |         +---> Gate Check
+    |         |         +---> Stage 6: Documenter (optional)
+    |         |         +---> Gate Check
+    |         |         +---> Stage 7: Summarizer (LiteLLM)
     |         |
     |         +---> [Worker 2] ---> [GitWorktreeManager] ---> worktree-2/
     |         ...
@@ -87,7 +91,7 @@ All tables live in the core platform database under the existing schema.
 | branch_name | VARCHAR(255) NULL | Git branch created for this task |
 | worktree_path | VARCHAR(512) NULL | Absolute path to worktree |
 | worker_id | VARCHAR(64) NULL | Which worker is processing |
-| current_stage | VARCHAR(32) NULL | architect, coder, validator, tester, documenter |
+| current_stage | VARCHAR(32) NULL | architect, coder, auditor, validator, tester, documenter, summarizer |
 | stage_progress | JSONB | Per-stage status and timing |
 | pipeline_config | JSONB | Override defaults: skip stages, model selection, timeouts |
 | error_message | TEXT NULL | Last error if failed |
@@ -141,9 +145,11 @@ Between each stage, a gate check verifies the output:
 |-------------|-----------|
 | Architect | OpenSpec proposal exists and validates (`openspec validate --strict`) |
 | Coder | Code changes present, no syntax errors |
+| Auditor | Audit report exists when the stage is enabled |
 | Validator | PHPStan level 8 passes, CS Fixer has no violations |
 | Tester | Codeception suites pass |
 | Documenter | Documentation files updated |
+| Summarizer | Final markdown summary exists in `tasks/summary/` and covers all completed agents |
 
 If a gate check fails, the stage can be retried up to `MAX_RETRIES` times. If all retries fail, the task moves to `failed` status.
 
@@ -153,9 +159,11 @@ Each stage has a default model and fallback chain, matching the existing pipelin
 
 - Architect: claude-sonnet-4-6 -> gpt-5.3-codex -> free -> cheap
 - Coder: gpt-5.3-codex -> claude-opus-4-6 -> free -> cheap
+- Auditor: claude-sonnet-4-6 -> free -> cheap
 - Validator: claude-sonnet-4-6 -> codex-mini-latest -> free -> cheap
 - Tester: claude-sonnet-4-6 -> codex-mini-latest -> free -> cheap
 - Documenter: claude-opus-4-6 -> free -> cheap
+- Summarizer: gpt-5.4 -> gpt-5.3-codex -> free -> cheap
 
 These are configurable per-task via `pipeline_config` JSONB column.
 
@@ -223,11 +231,11 @@ Predefined task description templates that pre-fill the description field:
 
 | Template | Description | Default Stages |
 |----------|-------------|----------------|
-| ADR | Architecture Decision Record | architect only |
-| HLD | High-Level Design document | architect only |
-| Feature | New feature implementation | all 5 stages |
-| Bug Fix | Fix an existing bug | coder, validator, tester |
-| Refactor | Code restructuring | coder, validator, tester |
+| ADR | Architecture Decision Record | architect, summarizer |
+| HLD | High-Level Design document | architect, summarizer |
+| Feature | New feature implementation | architect, coder, validator, tester, summarizer |
+| Bug Fix | Fix an existing bug | coder, validator, tester, summarizer |
+| Refactor | Code restructuring | coder, validator, tester, summarizer |
 
 Templates are stored as Twig partials and rendered into the task creation form. Each template can specify which pipeline stages to include/skip.
 

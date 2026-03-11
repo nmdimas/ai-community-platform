@@ -17,7 +17,7 @@ The platform currently has no centralized scheduling. The news-maker-agent uses 
   - Sub-second scheduling precision
   - Distributed scheduler (single instance is sufficient for MVP)
   - Job dependency chains or DAGs
-  - Cron expression editing via admin UI (jobs come from manifests)
+  - Full-featured job editing UI (only create modal for admin jobs; manifest jobs are read-only)
 
 ## Decisions
 
@@ -62,6 +62,25 @@ The platform currently has no centralized scheduling. The news-maker-agent uses 
   - Run inside web process — blocks request handling, no signal handling
   - Supervisord inside core container — adds complexity to container setup
 
+### 6. Dedicated execution log table
+
+- **Decision**: Create a `scheduler_job_logs` table to record every execution attempt (start, finish, status, error, payload, response). Each row references `job_id` and duplicates `agent_name`/`skill_id` for query convenience.
+- **Why**: The existing `a2a_message_audit` table captures A2A protocol-level data, but lacks scheduler-specific context (job name, retry count, timing). A dedicated log table enables: per-job log history in admin UI, filtering by status/date, and clear visibility into retry sequences.
+- **Alternatives considered**:
+  - Reuse `a2a_message_audit` — already written by `A2AClient::invoke()`, but doesn't link to `scheduled_jobs.id` and can't show scheduler-specific metadata (retry attempt number, scheduled vs actual run time)
+  - Application log files — not queryable from admin UI, no structured data
+  - Add columns to `scheduled_jobs` — only stores last execution, loses history
+
+### 7. Visual cron builder via @vue-js-cron/light + CDN
+
+- **Decision**: Mount Vue 3 and @vue-js-cron/light via CDN `<script>` tags, scoped to the scheduler create modal only. The cron builder syncs bidirectionally with the classic text input — users can type cron expressions or click the visual builder.
+- **Why**: Non-technical admins (community managers) need to configure scheduled tasks without learning cron syntax. @vue-js-cron/light is lightweight (~15 KB gzipped), has no build step required, and works with Vue 3's CDN distribution. Scoping Vue to one mount point avoids polluting the rest of the vanilla JS admin.
+- **Alternatives considered**:
+  - Vanilla JS cron builder — no mature, maintained library exists; custom implementation would be significant effort
+  - Full Vue migration of admin — massive scope creep, not justified for one widget
+  - React-based cron picker — same CDN approach possible, but @vue-js-cron/light is specifically designed for this use case and better maintained
+  - Server-side rendered dropdowns (minute/hour/day selectors) — poor UX for complex expressions, doesn't support range/step syntax
+
 ## Risks / Trade-offs
 
 - **Single point of failure**: One scheduler instance means if it crashes, jobs don't run until restart → Mitigation: Docker restart policy (`unless-stopped`), catch-up policy runs missed jobs on restart
@@ -81,7 +100,12 @@ The platform currently has no centralized scheduling. The news-maker-agent uses 
 8. Run migration on deployment
 9. Future: migrate news-maker from APScheduler to central scheduler (separate proposal)
 
+## Risks / Trade-offs (continued)
+
+- **Vue CDN dependency**: Adding Vue 3 via CDN introduces an external runtime dependency for one page → Mitigation: load only on the scheduler page, use `integrity` hash on the `<script>` tag, pin to specific version
+- **Log table growth**: High-frequency jobs (every minute) produce ~525K rows/year per job → Mitigation: add `created_at` index, provide admin-side retention/cleanup command in v2
+
 ## Open Questions
 
-- Should the scheduler log each execution to `a2a_message_audit` (it already does via `A2AClient::invoke`)? Likely yes, no extra work needed.
 - Should we add a `locked_at` / `locked_by` column for debugging stuck jobs? Deferred to v2 if needed.
+- Log retention policy: time-based cleanup (e.g., 90 days) or count-based (last N per job)? Defer to v2, table will be manageable at MVP scale.

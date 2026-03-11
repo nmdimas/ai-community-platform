@@ -119,7 +119,7 @@ make pipeline-batch FILE=tasks.txt
 ### Summarizer (15 хв)
 - **Модель**: GPT-5.4
 - **Роль**: формує фінальний markdown-підсумок по всіх агентах, які реально працювали над задачею
-- **Вихід**: `task/<timestamp>-<task-slug>.md`
+- **Вихід**: `tasks/summary/<timestamp>-<task-slug>.md`
 - **Що містить**: хто що зробив, складнощі, що ще треба виправити, і пропозицію до наступної задачі
 
 ## Автоматичний аудит для агентів
@@ -262,7 +262,7 @@ pipeline.sh створює гілку: pipeline/<task-slug>
     ↓
 Звіт: .opencode/pipeline/reports/<timestamp>.md
     ↓
-Task summary: task/<timestamp>-<task-slug>.md
+Task summary: tasks/summary/<timestamp>-<task-slug>.md
 ```
 
 ### Checkpoint & Resume

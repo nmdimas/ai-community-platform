@@ -1,3 +1,4 @@
+<!-- batch: 20260311_104341 | status: pass | duration: 981s | branch: pipeline/implement-kubernetes-packaging-skeleton-and-operat -->
 # Implement Kubernetes packaging skeleton and operator runbooks
 
 Implement the Kubernetes-focused phase of the approved OpenSpec change

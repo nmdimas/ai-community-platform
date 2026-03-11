@@ -16,6 +16,7 @@ final class SchedulerService
         private readonly A2AClientInterface $a2aClient,
         private readonly LoggerInterface $logger,
         private readonly Connection $connection,
+        private readonly SchedulerJobLogRepositoryInterface $jobLog,
     ) {
     }
 
@@ -48,13 +49,19 @@ final class SchedulerService
             $traceId = bin2hex(random_bytes(16));
             $requestId = bin2hex(random_bytes(8));
 
+            $logId = $this->jobLog->logStart($id, (string) $job['agent_name'], $skillId, (string) $job['job_name'], $payload);
+
             try {
                 $result = $this->a2aClient->invoke($skillId, $payload, $traceId, $requestId, 'scheduler');
                 $status = (string) ($result['status'] ?? 'unknown');
 
                 if ('failed' === $status) {
+                    $errorMsg = (string) ($result['error'] ?? $result['message'] ?? 'Agent returned failed status');
+                    $this->jobLog->logFinish($logId, 'failed', $errorMsg, $result);
                     $this->handleFailure($id, $retryCount, $maxRetries, $retryDelaySeconds, $job);
                 } else {
+                    $this->jobLog->logFinish($logId, 'completed', null, $result);
+
                     $nextRunAt = null !== $cronExpression
                         ? $this->cronHelper->computeNextRun($cronExpression, $timezone)->format('Y-m-d H:i:sP')
                         : null;
@@ -70,6 +77,7 @@ final class SchedulerService
                     ]);
                 }
             } catch (\Throwable $e) {
+                $this->jobLog->logFinish($logId, 'failed', $e->getMessage());
                 $this->handleFailure($id, $retryCount, $maxRetries, $retryDelaySeconds, $job, $e);
             }
 

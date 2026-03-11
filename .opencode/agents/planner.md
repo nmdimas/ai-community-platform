@@ -29,9 +29,9 @@ Analyze the incoming task and produce a JSON pipeline configuration file. You do
 
 | Profile | When to use | Agents |
 |---------|-------------|--------|
-| quick-fix | Typos, config, 1-3 files, single app, no migrations | coder, validator |
-| standard | Normal feature, multiple files, one app, may need spec | architect, coder, validator, tester |
-| complex | Multi-service, migrations, API changes, new agents | architect, coder, validator, tester, auditor |
+| quick-fix | Typos, config, 1-3 files, single app, no migrations | coder, validator, summarizer |
+| standard | Normal feature, multiple files, one app, may need spec | architect, coder, validator, tester, summarizer |
+| complex | Multi-service, migrations, API changes, new agents | architect, coder, auditor, validator, tester, summarizer |
 
 ## Output
 
@@ -41,7 +41,7 @@ Write `.opencode/pipeline/plan.json` with this structure:
 {
   "profile": "quick-fix",
   "reasoning": "Single config file change, no migrations needed",
-  "agents": ["coder", "validator"],
+  "agents": ["coder", "validator", "summarizer"],
   "skip_openspec": true,
   "estimated_files": 2,
   "apps_affected": ["core"],
@@ -59,6 +59,7 @@ Write `.opencode/pipeline/plan.json` with this structure:
 ## Rules
 
 - Be conservative: if unsure, choose "standard" over "quick-fix"
+- Keep `summarizer` as the final agent unless the task is intentionally single-agent
 - **If an existing OpenSpec proposal has `tasks.md` (spec is ready) — exclude `architect` from agents.** The coder reads the spec directly from `openspec/changes/<id>/`. Architect is only needed when no spec exists yet.
 - If the task says "Implement openspec change ..." — the spec is definitely ready, skip architect.
 - **If the task involves creating or modifying an agent — set `is_agent_task: true`.** The pipeline will auto-inject the auditor after the coder to verify agent compliance with platform standards.

@@ -48,6 +48,9 @@ Checks for agents built with PHP 8.5 + Symfony 7.
 | C-09 | `config/reference.php` exists | Glob | Exists | — | Missing |
 | C-10 | Environment variables documented | `.env` or `.env.dev` exists with content | Exists | Empty | Missing |
 | C-11 | `services.yaml` exists | Glob `apps/<agent>/config/services.yaml` | Exists | — | Missing |
+| C-12 | Scheduled jobs reference valid skills | If manifest has `scheduled_jobs`, each entry's `skill_id` must exist in the `skills` array | All skill_ids match | — | Unknown skill_id found |
+| C-13 | Scheduled jobs have valid cron | If manifest has `scheduled_jobs`, each entry with `cron_expression` must be a valid 5-field cron (regex `^\S+ \S+ \S+ \S+ \S+$`) | All valid | — | Invalid cron expression |
+| C-14 | Scheduled jobs have unique names | If manifest has `scheduled_jobs`, all `name` values must be unique within the agent | All unique | — | Duplicate names |
 
 ## X: Security
 

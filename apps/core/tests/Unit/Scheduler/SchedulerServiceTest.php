@@ -7,6 +7,7 @@ namespace App\Tests\Unit\Scheduler;
 use App\A2AGateway\A2AClientInterface;
 use App\Scheduler\CronExpressionHelperInterface;
 use App\Scheduler\ScheduledJobRepositoryInterface;
+use App\Scheduler\SchedulerJobLogRepositoryInterface;
 use App\Scheduler\SchedulerService;
 use Codeception\Test\Unit;
 use Doctrine\DBAL\Connection;
@@ -20,6 +21,7 @@ final class SchedulerServiceTest extends Unit
     private A2AClientInterface&MockObject $a2aClient;
     private LoggerInterface&MockObject $logger;
     private Connection&MockObject $connection;
+    private SchedulerJobLogRepositoryInterface&MockObject $jobLog;
     private SchedulerService $service;
 
     protected function setUp(): void
@@ -29,6 +31,8 @@ final class SchedulerServiceTest extends Unit
         $this->a2aClient = $this->createMock(A2AClientInterface::class);
         $this->logger = $this->createMock(LoggerInterface::class);
         $this->connection = $this->createMock(Connection::class);
+        $this->jobLog = $this->createMock(SchedulerJobLogRepositoryInterface::class);
+        $this->jobLog->method('logStart')->willReturn('log-default');
 
         $this->service = new SchedulerService(
             $this->repository,
@@ -36,6 +40,7 @@ final class SchedulerServiceTest extends Unit
             $this->a2aClient,
             $this->logger,
             $this->connection,
+            $this->jobLog,
         );
     }
 
@@ -247,6 +252,88 @@ final class SchedulerServiceTest extends Unit
             ->method('updateAfterRun');
 
         $this->assertSame(1, $this->service->tick());
+    }
+
+    public function testTickLogsStartAndCompletedOnSuccess(): void
+    {
+        $jobLog = $this->createMock(SchedulerJobLogRepositoryInterface::class);
+        $service = new SchedulerService($this->repository, $this->cronHelper, $this->a2aClient, $this->logger, $this->connection, $jobLog);
+
+        $job = $this->makeJob('job-log-ok', '* * * * *');
+
+        $this->repository->expects($this->once())
+            ->method('findDueJobs')
+            ->willReturn([$job]);
+
+        $this->a2aClient->expects($this->once())
+            ->method('invoke')
+            ->willReturn(['status' => 'completed']);
+
+        $this->cronHelper->method('computeNextRun')
+            ->willReturn(new \DateTimeImmutable('+1 minute'));
+
+        $jobLog->expects($this->once())
+            ->method('logStart')
+            ->with('job-log-ok', 'test-agent', 'test.skill', 'test-job', [])
+            ->willReturn('log-42');
+
+        $jobLog->expects($this->once())
+            ->method('logFinish')
+            ->with('log-42', 'completed', null, ['status' => 'completed']);
+
+        $service->tick();
+    }
+
+    public function testTickLogsFailedOnException(): void
+    {
+        $jobLog = $this->createMock(SchedulerJobLogRepositoryInterface::class);
+        $service = new SchedulerService($this->repository, $this->cronHelper, $this->a2aClient, $this->logger, $this->connection, $jobLog);
+
+        $job = $this->makeJob('job-log-err', '* * * * *', retryCount: 0, maxRetries: 3);
+
+        $this->repository->expects($this->once())
+            ->method('findDueJobs')
+            ->willReturn([$job]);
+
+        $this->a2aClient->expects($this->once())
+            ->method('invoke')
+            ->willThrowException(new \RuntimeException('Timeout'));
+
+        $jobLog->expects($this->once())
+            ->method('logStart')
+            ->willReturn('log-43');
+
+        $jobLog->expects($this->once())
+            ->method('logFinish')
+            ->with('log-43', 'failed', 'Timeout');
+
+        $service->tick();
+    }
+
+    public function testTickLogsFailedOnAgentFailedStatus(): void
+    {
+        $jobLog = $this->createMock(SchedulerJobLogRepositoryInterface::class);
+        $service = new SchedulerService($this->repository, $this->cronHelper, $this->a2aClient, $this->logger, $this->connection, $jobLog);
+
+        $job = $this->makeJob('job-log-status', '* * * * *', retryCount: 0, maxRetries: 3);
+
+        $this->repository->expects($this->once())
+            ->method('findDueJobs')
+            ->willReturn([$job]);
+
+        $this->a2aClient->expects($this->once())
+            ->method('invoke')
+            ->willReturn(['status' => 'failed', 'error' => 'Skill not found']);
+
+        $jobLog->expects($this->once())
+            ->method('logStart')
+            ->willReturn('log-44');
+
+        $jobLog->expects($this->once())
+            ->method('logFinish')
+            ->with('log-44', 'failed', 'Skill not found', ['status' => 'failed', 'error' => 'Skill not found']);
+
+        $service->tick();
     }
 
     /**

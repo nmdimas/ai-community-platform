@@ -9,7 +9,7 @@
 #   4. Validator (Codex)     — runs PHPStan + CS, fixes issues
 #   5. Tester (Codex)        — runs tests, fixes failures
 #   6. Documenter (optional) — writes documentation
-#   7. Summarizer (GPT-5.4)  — writes final task summary to task/*.md
+#   7. Summarizer (GPT-5.4)  — writes final task summary to tasks/summary/*.md
 #
 # Usage:
 #   ./scripts/pipeline.sh "Add streaming support to A2A gateway"
@@ -586,7 +586,7 @@ init_artifacts() {
   local branch="$2"
   ARTIFACTS_DIR="$ARTIFACTS_BASE/$slug"
   CHECKPOINT_FILE="$ARTIFACTS_DIR/checkpoint.json"
-  TASK_SUMMARY_DIR="$REPO_ROOT/task"
+  TASK_SUMMARY_DIR="$REPO_ROOT/tasks/summary"
   TASK_SUMMARY_FILE="$TASK_SUMMARY_DIR/${TIMESTAMP}-${slug}.md"
 
   mkdir -p "$ARTIFACTS_DIR"

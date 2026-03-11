@@ -3,6 +3,27 @@
 {% block title %}Планувальник — Admin{% endblock %}
 {% block page_title %}Планувальник завдань{% endblock %}
 
+{% block stylesheets %}
+    <link rel="stylesheet" href="https://esm.sh/@vue-js-cron/light@5.1.1/dist/light.css">
+    <style>
+        /* @vue-js-cron/light — library has built-in .dark .ant theme, we just add .dark class */
+        #cron-builder-app { font-size: .85rem; }
+        #cron-builder-app .cron-light { flex-wrap: wrap; gap: .3rem; }
+        /* Prefix/infix text */
+        #cron-builder-app .cl-prefix { color: var(--text-secondary, #94a3b8); }
+        /* Give the builder wrap breathing room */
+        #cron-builder-wrap { padding: .5rem 0; min-height: 3rem; }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "vue": "https://esm.sh/vue@3.5.13/dist/vue.esm-browser.prod.js",
+            "@vue-js-cron/light": "https://esm.sh/@vue-js-cron/light@5.1.1?bundle-deps&external=vue"
+        }
+    }
+    </script>
+{% endblock %}
+
 {% block content %}
     <div class="glass-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
@@ -63,9 +84,14 @@
                                 {% endif %}
                             </td>
                             <td style="white-space:nowrap;">
+                                <a
+                                    class="btn btn-settings"
+                                    style="font-size:.75rem;padding:.25rem .6rem;text-decoration:none;"
+                                    href="{{ path('admin_scheduler_logs', {id: job.id}) }}"
+                                >Логи</a>
                                 <button
                                     class="btn btn-settings"
-                                    style="font-size:.75rem;padding:.25rem .6rem;"
+                                    style="font-size:.75rem;padding:.25rem .6rem;margin-left:.25rem;"
                                     onclick="runNow('{{ job.id|e('js') }}')"
                                 >Запустити</button>
                                 <button
@@ -92,7 +118,7 @@
         </div>
     </div>
     <div id="createJobModal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-        <div class="modal" style="max-width:560px;">
+        <div class="modal" style="max-width:90%;width:720px;">
             <h3>Створити завдання</h3>
             <form id="createJobForm" onsubmit="createJob(event)">
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;">
@@ -118,8 +144,14 @@
                         <input type="text" id="cj_job_name" class="form-input" required placeholder="daily-greeting">
                     </div>
                     <div>
-                        <label class="form-label" for="cj_cron">Cron (порожнє = одноразовий)</label>
+                        <label class="form-label">
+                            Cron (порожнє = одноразовий)
+                            <button type="button" id="cronModeToggle" class="btn btn-settings" style="font-size:.65rem;padding:.15rem .4rem;margin-left:.4rem;vertical-align:middle;" onclick="toggleCronMode()">Візуальний</button>
+                        </label>
                         <input type="text" id="cj_cron" class="form-input" placeholder="0 9 * * *">
+                        <div id="cron-builder-wrap" style="display:none;margin-top:.35rem;">
+                            <div id="cron-builder-app" class="dark"></div>
+                        </div>
                     </div>
                 </div>
                 <div style="margin-bottom:.75rem;">
@@ -250,6 +282,73 @@ function createJob(e) {
         btn.disabled = false;
         btn.textContent = 'Створити';
     });
+}
+
+var cronBuilderVisible = false;
+function toggleCronMode() {
+    cronBuilderVisible = !cronBuilderVisible;
+    var wrap = document.getElementById('cron-builder-wrap');
+    var input = document.getElementById('cj_cron');
+    var btn = document.getElementById('cronModeToggle');
+
+    if (cronBuilderVisible) {
+        wrap.style.display = 'block';
+        input.style.display = 'none';
+        btn.textContent = 'Текстовий';
+        initCronBuilder();
+    } else {
+        wrap.style.display = 'none';
+        input.style.display = '';
+        btn.textContent = 'Візуальний';
+    }
+}
+
+var cronBuilderInited = false;
+function initCronBuilder() {
+    if (cronBuilderInited) return;
+    cronBuilderInited = true;
+
+    if (typeof window.__mountCronBuilder === 'function') {
+        window.__mountCronBuilder();
+    } else {
+        window.__cronBuilderRequested = true;
+    }
+}
+</script>
+<script type="module">
+import { createApp, ref, watch } from 'vue';
+import { CronLight } from '@vue-js-cron/light';
+
+function mountCronBuilder() {
+    const cronInput = document.getElementById('cj_cron');
+    const app = createApp({
+        components: { CronLight },
+        setup() {
+            const value = ref(cronInput.value || '* * * * *');
+
+            watch(value, function(v) {
+                cronInput.value = v;
+                cronInput.dispatchEvent(new Event('input'));
+            });
+
+            cronInput.addEventListener('input', function() {
+                const wrap = document.getElementById('cron-builder-wrap');
+                if (wrap && wrap.style.display === 'none') {
+                    value.value = cronInput.value || '* * * * *';
+                }
+            });
+
+            return { value };
+        },
+        template: '<cron-light v-model="value" />'
+    });
+    app.mount('#cron-builder-app');
+}
+
+window.__mountCronBuilder = mountCronBuilder;
+
+if (window.__cronBuilderRequested) {
+    mountCronBuilder();
 }
 </script>
 {% endblock %}

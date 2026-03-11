@@ -28,6 +28,7 @@
 ## Key Links
 
 - [Agent conventions](agent-requirements/conventions.md)
+- [Multi-agent pipeline](features/pipeline/en/pipeline.md)
 - [Agent Card schema](../apps/core/config/agent-card.schema.json)
 - [Local dev guide](local-dev.md)
 - [Production deployment guide](guides/deployment/en/deployment.md)

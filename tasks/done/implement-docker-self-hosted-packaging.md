@@ -1,3 +1,4 @@
+<!-- batch: 20260311_104341 | status: pass | duration: 1365s | branch: pipeline/implement-docker-self-hosted-packaging-and-upgrade -->
 # Implement Docker self-hosted packaging and upgrade runbook
 
 Implement the Docker-focused phase of the approved OpenSpec change
