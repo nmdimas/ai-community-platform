@@ -1,0 +1,86 @@
+# Tasks: Rewrite Pipeline Monitor
+
+## Ordered Work Items
+
+### 1. Implement terminal input handler with bash 3.2 compatibility
+- Use `stty -echo -icanon` on entry, restore on exit
+- Read escape sequences using `dd bs=1 count=1` as fallback when `read -rsn1` fails
+- Test: arrow keys produce UP/DOWN/LEFT/RIGHT, no escape leakage
+- Test: regular keys (s, q, f, k, etc.) work
+- Test: Enter and Esc work
+- **Verify**: run on macOS bash 3.2, confirm no `^[[D` garbage output
+
+### 2. Implement flicker-free buffer renderer
+- `buf_reset`, `buf_line`, `buf_flush` using cursor home + line-by-line overwrite
+- Alternate screen buffer (`\033[?1049h/l`) for clean entry/exit
+- Hide cursor during render, show on exit
+- **Verify**: no flicker during 3s refresh cycle
+
+### 3. Implement Overview tab (tab 1)
+- Task counters: todo, in-progress, done, failed
+- Progress bar: `[████░░░░] 3/8`
+- Batch status with worker count: `"Running (3m 42s, PID 12345, 2 workers)"`
+- Smart start prompt: `"Not running — N tasks waiting, press [s] to start"` when todo > 0
+- Task list with cursor selection (▶), grouped by state
+- Priority display for todo tasks
+- Duration and branch for completed/failed tasks
+- **Verify**: all counts match files in tasks/ directories
+
+### 4. Implement Logs tab (tab 2, always present)
+- Find latest log: `ls -t .opencode/pipeline/logs/*.log | head -1`
+- Show agent name, filename, size in header
+- Colorized tail: errors=red, success=green, separators=cyan
+- Auto-refresh every 3s
+- **Verify**: shows logs from sequential runs (no worktrees needed)
+
+### 5. Implement Worker tabs (tab 3+, dynamic)
+- Detect workers via `$WORKTREE_BASE/worker-*` directories
+- Each tab shows latest log from worker's worktree log dir
+- Fallback to main log dir if worktree has no logs
+- Show active task name from `pgrep`/`ps` process args
+- **Verify**: tabs appear/disappear as workers start/stop
+
+### 6. Implement tab bar and navigation
+- Always show: `1:Overview  2:Logs`
+- Dynamically add: `3:worker-1  4:worker-2 ...`
+- Left/Right arrows switch between tabs
+- Number keys (1-9) jump to tab directly
+- Active tab shown in reverse video
+- **Verify**: LEFT from Overview does nothing, RIGHT goes to Logs, then workers
+
+### 7. Implement task actions
+- `s` — start batch (`caffeinate -s nohup pipeline-batch.sh ...`) or start extra worker for selected task
+- `f` — retry failed (move failed→todo, delete branches, restart)
+- `k` — kill batch (`pkill -f pipeline-batch.sh`)
+- `x` — stop in-progress task (move to todo)
+- `+/-` — change priority (read/write `<!-- priority: N -->` in task file)
+- `d` — delete task (file + branch + logs + artifacts)
+- `a` — archive completed (move done→archive)
+- `Enter` — detail view, `Esc` — back
+- **Verify**: each action matches current monitor behavior
+
+### 8. Implement task detail view
+- Show full task file content (minus priority/batch metadata)
+- Scrollable within available terminal height
+- Esc/Backspace returns to task list
+- **Verify**: Enter on selected task shows detail, Esc returns
+
+### 9. Wire main loop
+- `render` → `read_key` → `handle_key` → repeat
+- 3s refresh interval when no key pressed
+- Clean exit on q/Ctrl-C with stty restore
+- **Verify**: monitor runs stable for 10+ minutes without memory/fd leaks
+
+### 10. Update pipeline documentation
+- Update `docs/features/pipeline/ua/pipeline.md` monitoring section with new tab layout
+- Update `docs/features/pipeline/en/pipeline.md` same
+- **Verify**: docs match actual behavior
+
+## Dependencies
+
+- Tasks 1-2 are the foundation (terminal + renderer)
+- Tasks 3-6 depend on 1-2 (tabs and content)
+- Task 7 depends on 3 (actions operate on task list)
+- Task 8 depends on 3 (detail is a sub-view of overview)
+- Task 9 wires everything together
+- Task 10 is last
