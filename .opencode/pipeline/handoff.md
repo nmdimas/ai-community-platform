@@ -68,11 +68,11 @@ the monorepo workflow and documenting the migration path.
 
 ## Architect
 
-- **Status**: pending
-- **Change ID**: —
-- **Apps affected**: —
-- **DB changes**: —
-- **API changes**: —
+- **Status**: done
+- **Change ID**: refactor-agents-into-external-repositories (phase 2)
+- **Apps affected**: hello-agent (pilot)
+- **DB changes**: none
+- **API changes**: none
 
 ## Coder
 
@@ -128,10 +128,31 @@ the monorepo workflow and documenting the migration path.
 
 ## Documenter
 
-- **Status**: pending
-- **Docs created/updated**: —
+- **Status**: done
+- **Docs created/updated**: 
+  - `docs/index.md` — added Source column, external-agent guide links
+  - `docs/agent-requirements/conventions.md` — added Section 9: External Agent Repositories
+  - `docs/guides/external-agents/en/` — 5 new docs (workspace, onboarding, playbook, selection, template)
+  - `docs/guides/external-agents/ua/` — 1 doc (operator-onboarding.md mirror)
+
+## Auditor
+
+- **Status**: done
+- **Apps audited**: `apps/hello-agent/` (pilot agent), platform infrastructure
+- **Audit result**: **PASS** — 91% agent score, 86% platform score
+- **Verdict**: PASS
+- **Findings**:
+  - 53 PASS, 4 WARN, 1 FAIL (hello-agent)
+  - Platform changes: 6 PASS, 1 WARN
+- **Critical issues**: None blocking (security.yaml missing but acceptable for reference agent)
+- **Recommendations**:
+  1. Add explicit `security.yaml` with `security: false` for clarity
+  2. Complete UA docs for external agents
+  3. Add OpenAPI spec for hello-agent
+- **Report location**: `.opencode/pipeline/reports/20260311_110629_audit.md`
 
 ---
 
 - **Commit (coder)**: 497d780
 - **Commit (validator)**: dab007f
+- **Commit (tester)**: 7473921
