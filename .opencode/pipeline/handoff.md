@@ -88,10 +88,18 @@ deployment contract, and operator runbooks.
 
 ## Validator
 
-- **Status**: pending
-- **PHPStan**: —
-- **CS-check**: —
-- **Files fixed**: —
+- **Status**: completed
+- **PHPStan**:
+  - apps/core/: not run (no app code changes)
+  - apps/knowledge-agent/: not run (no app code changes)
+  - apps/hello-agent/: not run (no app code changes)
+  - apps/news-maker-agent/: not run (no app code changes)
+- **CS-check**:
+  - apps/core/: not run (no app code changes)
+  - apps/knowledge-agent/: not run (no app code changes)
+  - apps/hello-agent/: not run (no app code changes)
+  - apps/news-maker-agent/: not run (no app code changes)
+- **Files fixed**: none
 
 ## Tester
 
@@ -106,3 +114,4 @@ deployment contract, and operator runbooks.
 
 ---
 
+- **Commit (coder)**: fac09c3
