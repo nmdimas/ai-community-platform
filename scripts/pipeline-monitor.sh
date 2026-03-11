@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2034
 #
 # Interactive pipeline monitor with tab-based TUI.
+# Version: 0.6.0
 #
 # Usage:
 #   ./scripts/pipeline-monitor.sh              # auto-detect tasks/ folder
