@@ -103,9 +103,15 @@ deployment contract, and operator runbooks.
 
 ## Tester
 
-- **Status**: pending
-- **Test results**: —
-- **New tests written**: —
+- **Status**: completed
+- **Test results**:
+  - apps/core/ (`make test`): skipped (0 passed, 0 failed, 0 skipped) — no changes under `apps/core/`
+  - apps/knowledge-agent/ (`make knowledge-test`): skipped (0 passed, 0 failed, 0 skipped) — no changes under `apps/knowledge-agent/`
+  - apps/hello-agent/ (`make hello-test`): skipped (0 passed, 0 failed, 0 skipped) — no changes under `apps/hello-agent/`
+  - apps/news-maker-agent/ (`make news-test`): skipped (0 passed, 0 failed, 0 skipped) — no changes under `apps/news-maker-agent/`
+  - `make conventions-test`: skipped — no agent manifest/compose configuration changes detected
+- **New tests written**: none
+- **Tests updated**: none (no app code changes requiring test updates)
 
 ## Documenter
 
@@ -115,3 +121,4 @@ deployment contract, and operator runbooks.
 ---
 
 - **Commit (coder)**: fac09c3
+- **Commit (validator)**: 9c10973
