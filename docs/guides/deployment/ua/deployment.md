@@ -252,6 +252,33 @@ curl -s 'http://localhost:9200/platform_logs_*/_search?size=5&sort=@timestamp:de
 - [ ] Обмежити порти OpenSearch, RabbitMQ, Redis тільки на localhost (firewall)
 - [ ] Обмежити доступ до Traefik dashboard
 
+## Зовнішні агенти
+
+Щоб додати зовнішній агент до деплою:
+
+```bash
+# Клонувати репозиторій агента в projects/
+make external-agent-clone repo=https://github.com/your-org/my-agent name=my-agent
+
+# Переглянути та налаштувати compose-фрагмент
+nano compose.fragments/my-agent.yaml
+
+# Налаштувати секрети агента
+cp projects/my-agent/.env.local.example projects/my-agent/.env.local
+nano projects/my-agent/.env.local
+
+# Запустити агента
+make external-agent-up name=my-agent
+
+# Запустити виявлення
+make agent-discover
+```
+
+Checkout зовнішніх агентів (`projects/`) та compose-фрагменти (`compose.fragments/*.yaml`)
+додані до gitignore та є локальними для оператора. Вони не комітяться до репозиторію платформи.
+
+Дивіться `docs/guides/external-agents/ua/onboarding.md` для повного гайду.
+
 ## Вирішення проблем
 
 ### Сервіс не запускається

@@ -262,7 +262,9 @@ Postgres convention:
 
 ## 8. Adding a New Agent — Checklist
 
-1. Add service to `compose.yaml` with name ending `-agent` and label `ai.platform.agent=true`
+### In-repo agent (bundled under apps/)
+
+1. Add service to `compose.agent-<name>.yaml` with name ending `-agent` and label `ai.platform.agent=true`
 2. Implement `GET /api/v1/manifest` returning valid JSON
 3. Implement `GET /health` returning `{"status": "ok"}`
 4. If skills declared: implement `POST /api/v1/a2a`
@@ -270,3 +272,43 @@ Postgres convention:
 6. Core auto-discovers on next discovery cycle (up to 60s) or via "Run Discovery" in admin panel
 
 No manual registration required. No code changes in core needed.
+
+### External agent (checked out under projects/)
+
+1. Clone the agent repository: `make external-agent-clone repo=<url> name=<agent-name>`
+2. Review `compose.fragments/<agent-name>.yaml` — verify labels, network, healthcheck
+3. Configure secrets: `cp projects/<agent-name>/.env.local.example projects/<agent-name>/.env.local`
+4. Start the agent: `make external-agent-up name=<agent-name>`
+5. Verify health: `curl -s http://localhost:<port>/health`
+6. Run discovery: `make agent-discover`
+7. Install and enable in admin panel: **Agents → Marketplace → Install → Enable**
+
+The same manifest, health, and A2A contracts apply regardless of source origin.
+
+See `docs/guides/external-agents/` for the full onboarding guide.
+
+---
+
+## 9. External Agent Workspace Convention
+
+External agents are maintained in separate repositories and checked out into the platform workspace
+under `projects/<agent-name>/`. This is the canonical path for all externally maintained agents.
+
+```
+projects/
+  hello-agent/          ← git clone of the hello-agent repository
+  knowledge-agent/      ← git clone of the knowledge-agent repository
+```
+
+Compose fragments for external agents live in `compose.fragments/<agent-name>.yaml` and are
+auto-discovered by the Makefile. Neither `projects/` nor `compose.fragments/*.yaml` are committed
+to the platform repository — they are operator-local.
+
+The platform tooling (`make external-agent-*`) manages the full lifecycle:
+
+| Command | Description |
+|---------|-------------|
+| `make external-agent-list` | List detected external agent fragments |
+| `make external-agent-clone repo=URL name=X` | Clone agent repo and install fragment |
+| `make external-agent-up name=X` | Start/update a named external agent |
+| `make external-agent-down name=X` | Stop a named external agent |

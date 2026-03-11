@@ -252,6 +252,33 @@ For production, change these dev defaults:
 - [ ] Restrict OpenSearch, RabbitMQ, Redis ports to localhost (firewall)
 - [ ] Restrict Traefik dashboard access
 
+## External Agents
+
+To add an externally maintained agent to the deployment:
+
+```bash
+# Clone the agent repository into projects/
+make external-agent-clone repo=https://github.com/your-org/my-agent name=my-agent
+
+# Review and adjust the compose fragment
+nano compose.fragments/my-agent.yaml
+
+# Configure agent secrets
+cp projects/my-agent/.env.local.example projects/my-agent/.env.local
+nano projects/my-agent/.env.local
+
+# Start the agent
+make external-agent-up name=my-agent
+
+# Trigger discovery
+make agent-discover
+```
+
+External agent checkouts (`projects/`) and compose fragments (`compose.fragments/*.yaml`) are
+gitignored and operator-local. They are not committed to the platform repository.
+
+See `docs/guides/external-agents/en/onboarding.md` for the full guide.
+
 ## Troubleshooting
 
 ### Service won't start
