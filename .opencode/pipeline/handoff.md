@@ -89,10 +89,17 @@ clear install, upgrade, rollback, and verification workflow.
 
 ## Validator
 
-- **Status**: pending
-- **PHPStan**: —
-- **CS-check**: —
-- **Files fixed**: —
+- **Status**: completed
+- **PHPStan**:
+  - `apps/core/`: pass (`make analyse`)
+  - `apps/hello-agent/`: pass (`make hello-analyse` hit container 128M PHP memory limit; re-ran phpstan with `--memory-limit=512M`)
+  - `apps/knowledge-agent/`: pass (`make knowledge-analyse`)
+- **CS-check**:
+  - `apps/core/`: pass (`make cs-check`)
+  - `apps/hello-agent/`: pass (`make hello-cs-check`)
+  - `apps/knowledge-agent/`: pass (`make knowledge-cs-check`)
+- **Files fixed**:
+  - `docker/openclaw/.env` (added placeholder env file required by compose stack for validation commands)
 
 ## Tester
 
@@ -107,3 +114,4 @@ clear install, upgrade, rollback, and verification workflow.
 
 ---
 
+- **Commit (coder)**: 5508713
