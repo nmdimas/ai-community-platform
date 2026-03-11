@@ -34,14 +34,14 @@
 
 ## 3. Kubernetes Packaging
 
-- [ ] 3.1 Choose the Kubernetes packaging format:
+- [x] 3.1 Choose the Kubernetes packaging format:
   - Helm umbrella chart preferred
   - raw manifests only as implementation detail if needed
-- [ ] 3.2 Define which stateful services are bundled versus expected as external managed services
-- [ ] 3.3 Implement Kubernetes jobs/hooks for bootstrap and migrations
-- [ ] 3.4 Add ingress, secret references, probes, scaling hints, and persistence defaults
-- [ ] 3.5 Document a production-grade sample `values.yaml`
-- [ ] 3.6 Define the Kubernetes upgrade flow:
+- [x] 3.2 Define which stateful services are bundled versus expected as external managed services
+- [x] 3.3 Implement Kubernetes jobs/hooks for bootstrap and migrations
+- [x] 3.4 Add ingress, secret references, probes, scaling hints, and persistence defaults
+- [x] 3.5 Document a production-grade sample `values.yaml`
+- [x] 3.6 Define the Kubernetes upgrade flow:
   - chart versioning and app version mapping
   - `helm upgrade` preflight review
   - migration hook or job behavior
@@ -58,15 +58,15 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 Split deployment docs into clearly separated Docker and Kubernetes guides
-- [ ] 5.2 Add an architecture/deployment matrix showing supported topologies and trade-offs
-- [ ] 5.3 Add operator runbooks for:
+- [x] 5.1 Split deployment docs into clearly separated Docker and Kubernetes guides
+- [x] 5.2 Add an architecture/deployment matrix showing supported topologies and trade-offs
+- [x] 5.3 Add operator runbooks for:
   - install
   - upgrade
   - backup / restore
   - troubleshooting
-- [ ] 5.4 Add explicit upgrade runbooks with example commands for Docker and Kubernetes operators
-- [ ] 5.4 Add English mirrors or folder-based bilingual docs for operator-facing deployment guides
+- [x] 5.4 Add explicit upgrade runbooks with example commands for Docker and Kubernetes operators
+- [x] 5.4 Add English mirrors or folder-based bilingual docs for operator-facing deployment guides
 
 ## 6. Quality Checks
 
