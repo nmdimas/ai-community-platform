@@ -185,7 +185,7 @@ jobs:
               git pull --ff-only
             fi
             COMPOSE_ARGS='-f compose.yaml -f compose.core.yaml'
-            for f in compose.agent-*.yaml; do
+            for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do
               [ -f \"\$f\" ] && COMPOSE_ARGS=\"\$COMPOSE_ARGS -f \$f\"
             done
             eval docker compose \$COMPOSE_ARGS up -d --build --no-deps ${REMOTE_SERVICES}

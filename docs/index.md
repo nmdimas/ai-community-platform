@@ -30,4 +30,5 @@
 - [Agent conventions](agent-requirements/conventions.md)
 - [Agent Card schema](../apps/core/config/agent-card.schema.json)
 - [Local dev guide](local-dev.md)
+- [Production deployment guide](guides/deployment/en/deployment.md)
 - [A2A terminology mapping (EN)](specs/en/a2a-terminology-mapping.md)

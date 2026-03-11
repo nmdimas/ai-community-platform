@@ -36,3 +36,11 @@
 - [x] 5.1 Add `--auto-fix` flag and `MAX_AUTO_FIX_RETRIES` to batch script
 - [x] 5.2 Implement `auto_fix_and_retry()` function with AI analysis
 - [x] 5.3 Integrate auto-fix into `move_to_failed()` flow
+
+## Group 6: Task Lifecycle Integration
+
+- [x] 6.1 Add `_detect_task_lifecycle()` to `pipeline.sh` — auto-create task file from text mode input
+- [x] 6.2 Add `_task_move_to_in_progress()` — move task from `tasks/todo/` to `tasks/in-progress/`
+- [x] 6.3 Add `_task_move_to_done()` and `_task_move_to_failed()` — move with batch metadata header
+- [x] 6.4 Integrate lifecycle calls at branch setup and pipeline completion points
+- [x] 6.5 Verify no conflict with `pipeline-batch.sh` worktree temp paths

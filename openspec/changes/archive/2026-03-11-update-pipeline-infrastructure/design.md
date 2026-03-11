@@ -70,6 +70,27 @@ App (main component)
 | x | In-progress | Stop task |
 | q | Any | Quit |
 
+## Task Lifecycle Integration
+
+### Problem
+
+`pipeline.sh` (single task runner) and `pipeline-batch.sh` / `pipeline-monitor.sh` operated as two separate systems. Tasks launched directly via `pipeline.sh` didn't appear in the monitor because no task file was created in `tasks/`.
+
+### Solution
+
+Added four lifecycle functions to `pipeline.sh`:
+
+- `_detect_task_lifecycle()` — Detects if task file is in `tasks/todo/` OR auto-creates one from text mode input
+- `_task_move_to_in_progress()` — Moves `tasks/todo/X.md` → `tasks/in-progress/X.md`
+- `_task_move_to_done()` — Moves to `tasks/done/X.md` with batch metadata header
+- `_task_move_to_failed()` — Moves to `tasks/failed/X.md` with batch metadata header
+
+Metadata header format: `<!-- batch: TIMESTAMP | status: pass|fail | duration: Ns | branch: NAME -->`
+
+### Conflict avoidance
+
+`pipeline-batch.sh` copies task files to a worktree temp path before calling `pipeline.sh`. The lifecycle functions check if the file path starts with `tasks/todo/` — worktree temp paths don't match, so no conflict.
+
 ## Git Lock Contention
 
 Parallel workers share the same `.git` directory. Branch operations can fail with `index.lock` errors. Solution: retry loop with exponential backoff (1s, 2s, 3s, 4s, 5s).

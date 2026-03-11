@@ -28,6 +28,12 @@ The pipeline batch runner has critical reliability issues:
 ### Modified Capability: `pipeline` (single task runner)
 
 - Git branch creation with retry loop (5 attempts, exponential backoff) for lock contention in parallel worktree mode.
+- **Task lifecycle integration**: `pipeline.sh` now manages task file lifecycle unified with `pipeline-batch.sh`:
+  - In text mode (no `--task-file`): auto-creates a task file in `tasks/todo/` from the task message
+  - In `--task-file` mode: detects if file is in `tasks/todo/` and manages transitions
+  - Moves task to `tasks/in-progress/` after branch setup
+  - Moves task to `tasks/done/` or `tasks/failed/` on completion with batch metadata header
+  - No conflict with `pipeline-batch.sh` (batch copies to worktree temp path, lifecycle doesn't trigger)
 
 ## Impact
 
@@ -36,4 +42,5 @@ The pipeline batch runner has critical reliability issues:
 - **Modified**: `scripts/pipeline-monitor.sh` — buffer rendering fixes
 - **New**: `scripts/monitor/` — Ink TUI monitor (index.js, package.json)
 - **New**: `scripts/pipeline-monitor-ink.sh` — wrapper script
+- **Modified**: `scripts/pipeline.sh` — task lifecycle integration (auto-create task files, move between todo/in-progress/done/failed)
 - **No breaking changes** to pipeline task format or API
