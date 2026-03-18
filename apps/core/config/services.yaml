@@ -141,3 +141,10 @@ services:
             $baseUrl: '%app.litellm_base_url%'
             $apiKey: '%app.litellm_api_key%'
             $model: '%app.llm_model%'
+
+    App\AgentProject\AgentProjectRepositoryInterface:
+        alias: App\AgentProject\AgentProjectRepository
+        public: true
+
+    App\AgentProject\CredentialResolverInterface:
+        alias: App\AgentProject\EnvCredentialResolver

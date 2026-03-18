@@ -2,8 +2,8 @@
 vendor/
 node_modules/
 
-# Pipeline artifacts (checkpoints, agent outputs)
-tasks/artifacts/
+# Pipeline task queue (local-only, created by builder setup)
+builder/tasks/
 
 # Environment - only root-level .env; apps/core/.env is committed as Symfony dev defaults
 /.env

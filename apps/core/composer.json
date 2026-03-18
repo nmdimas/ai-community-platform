@@ -11,6 +11,8 @@
         "doctrine/doctrine-migrations-bundle": "^3.3",
         "dragonmantank/cron-expression": "^3.6",
         "predis/predis": "^3.4",
+        "react/async": "^4.3",
+        "react/http": "^1.11",
         "symfony/console": "7.*",
         "symfony/dotenv": "7.*",
         "symfony/flex": "^2",

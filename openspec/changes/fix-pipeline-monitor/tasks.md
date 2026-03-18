@@ -86,6 +86,62 @@
 - Update `docs/features/pipeline/en/pipeline.md` same
 - **Verify**: docs match actual behavior
 
+### 11. Render performance caching (v0.12.0) ✅
+
+- Cache worker detection, task list, log map, and task counts with 2-cycle TTL
+- Replace `count_files()` with bash glob (no subshells)
+- Replace `_extract_title()` with `IFS= read -r` (no grep/sed)
+- Invalidate cache on user actions (start, kill, archive, delete)
+- Reduces subprocess count from ~50-70 to ~5-10 per render cycle
+- **Done**: Implemented and verified
+
+### 12. Automatic log cleanup (v0.12.0) ✅
+
+- `cleanup_old_logs()` runs once on startup
+- Deletes `.log`, `.meta.json` files older than `LOG_RETENTION_DAYS` (default 7)
+- Also cleans old `batch_*.md` reports
+- Configurable: set `LOG_RETENTION_DAYS=0` to disable
+- **Done**: Implemented and verified
+
+### 13. Worker liveness detection (v0.12.0) ✅
+
+- `_worker_is_alive()` checks pgrep + worktree mtime fallback
+- Dead worker tabs automatically removed
+- `ACTIVE_WORKER_COUNT` tracks only live workers
+- **Done**: Implemented and verified
+
+### 14. Token aggregation and cost estimation (v0.12.0) ✅
+
+- `aggregate_batch_tokens()` collects all `.meta.json` from main + worktree log dirs
+- Single-pass awk extracts input/output/cache_read/cache_write tokens
+- `_estimate_cost()` calculates approximate cost at Claude Sonnet rates
+- `render_cost_bar()` displays at bottom of every tab
+- **Done**: Implemented and verified
+
+### 15. OpenRouter provider balance display (v0.12.0) ✅
+
+- `query_openrouter_balance()` queries `/api/v1/auth/key` with TTL caching
+- Displays usage percentage with color coding (green/yellow/red)
+- Shows `${usage}/${limit}` amounts
+- Skipped when `OPENROUTER_API_KEY` is not set
+- **Done**: Implemented and verified
+
+### 16. Cost breakdown in summary file (v0.12.0) ✅
+
+- `scripts/pipeline.sh` appends "Вартість пайплайну" table to `$TASK_SUMMARY_FILE`
+- Per-agent rows: duration, input/output tokens, cache stats, estimated cost
+- Grand total row at the bottom
+- **Done**: Implemented and verified
+
+### 17. macOS bash 3.2 empty array safety (v0.13.0) ✅
+
+- Fixed `set -u` crashes with empty arrays on macOS bash 3.2
+- `DETECTED_WORKERS=()` initialized at top level
+- Index-based loops replace `"${array[@]}"` for potentially empty arrays
+- Safe expansion `${arr[@]+"${arr[@]}"}` for `CACHED_LOG_MAP` and `meta_files`
+- Early return guards in `build_activity_events()` and `aggregate_batch_tokens()`
+- **Done**: Implemented and verified — monitor launches without crashes
+
 ## Dependencies
 
 - Tasks 1-2 are the foundation (terminal + renderer)
@@ -94,3 +150,4 @@
 - Task 8 depends on 3 (detail is a sub-view of overview)
 - Task 9 wires everything together
 - Task 10 is last
+- Tasks 11-17 are independent enhancements applied after the initial rewrite

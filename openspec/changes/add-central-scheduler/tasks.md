@@ -107,12 +107,22 @@
 - [x] 11.3 Unit test: `SchedulerServiceTest::testTickLogsFailedOnAgentFailedStatus` — verifies logFinish('failed') on agent status=failed
 - [x] 11.4 E2E tests: all 10 existing scheduler tests pass (log page and cron builder tested via integration)
 
-## 12. Quality Checks
+## 12. Scheduler Runtime & Status Dashboard
 
-- [x] 12.1 Run `phpstan analyse` — 0 new errors
-- [x] 12.2 Run `php-cs-fixer check` — no style violations
-- [x] 12.3 Run `codecept run` — all tests pass
-- [x] 12.4 Run `phpstan analyse` — 0 errors (new log code included)
-- [x] 12.5 Run `php-cs-fixer check` — 0 violations (151 files)
-- [x] 12.6 Run `codecept run Unit Scheduler` — 19 tests, 99 assertions, all pass
-- [x] 12.7 Run E2E tests — 10 scheduler tests pass
+- [x] 12.0.1 Fix `pcntl` extension missing in Docker image — `SIGTERM`/`SIGINT` undefined; added `pcntl` to `docker-php-ext-install`
+- [x] 12.0.2 Fix visual cron builder not rendering — Vue ESM import used runtime-only build (no template compiler); switched to `vue.esm-browser.prod.js`
+- [x] 12.0.3 Fix cron builder race condition — replaced event-based coordination with global function + flag pattern
+- [x] 12.0.4 Fix cron builder dark theme — added `class="dark"` to mount container for library built-in `.dark .ant` theme
+- [x] 12.0.5 Add scheduler status dashboard — stat cards (total/enabled, 24h runs, problems, last run) above job table
+- [x] 12.0.6 Add `computeStats()` to `SchedulerController` — aggregates job states + 24h log stats via SQL
+- [x] 12.0.7 E2E: add `@visual-cron` test scenario — opens modal, toggles visual builder, selects hourly, saves job
+
+## 13. Quality Checks
+
+- [x] 13.1 Run `phpstan analyse` — 0 new errors
+- [x] 13.2 Run `php-cs-fixer check` — no style violations
+- [x] 13.3 Run `codecept run` — all tests pass
+- [x] 13.4 Run `phpstan analyse` — 0 errors (new log code included)
+- [x] 13.5 Run `php-cs-fixer check` — 0 violations (151 files)
+- [x] 13.6 Run `codecept run Unit Scheduler` — 19 tests, 99 assertions, all pass
+- [x] 13.7 Run E2E tests — 11 scheduler tests pass (including @visual-cron)

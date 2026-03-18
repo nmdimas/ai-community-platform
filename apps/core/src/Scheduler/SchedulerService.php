@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Scheduler;
 
-use App\A2AGateway\A2AClientInterface;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 
@@ -13,7 +12,7 @@ final class SchedulerService
     public function __construct(
         private readonly ScheduledJobRepositoryInterface $repository,
         private readonly CronExpressionHelperInterface $cronHelper,
-        private readonly A2AClientInterface $a2aClient,
+        private readonly AsyncA2ADispatcherInterface $asyncDispatcher,
         private readonly LoggerInterface $logger,
         private readonly Connection $connection,
         private readonly SchedulerJobLogRepositoryInterface $jobLog,
@@ -22,6 +21,7 @@ final class SchedulerService
 
     public function tick(): int
     {
+        // === Phase 1: Transactional — find due jobs, log starts, advance next_run_at, commit ===
         $this->connection->beginTransaction();
 
         try {
@@ -32,7 +32,14 @@ final class SchedulerService
             throw $e;
         }
 
-        $executed = 0;
+        if ([] === $jobs) {
+            $this->connection->commit();
+
+            return 0;
+        }
+
+        /** @var list<array{id: string, skill_id: string, payload: array<string, mixed>, trace_id: string, request_id: string, log_id: string, cron_expression: ?string, timezone: string, retry_count: int, max_retries: int, retry_delay_seconds: int, agent_name: string, job_name: string}> $dispatchBatch */
+        $dispatchBatch = [];
 
         foreach ($jobs as $job) {
             $id = (string) $job['id'];
@@ -42,51 +49,71 @@ final class SchedulerService
                 : (array) ($job['payload'] ?? []);
             $cronExpression = isset($job['cron_expression']) ? (string) $job['cron_expression'] : null;
             $timezone = (string) ($job['timezone'] ?? 'UTC');
-            $retryCount = (int) ($job['retry_count'] ?? 0);
-            $maxRetries = (int) ($job['max_retries'] ?? 3);
-            $retryDelaySeconds = (int) ($job['retry_delay_seconds'] ?? 60);
 
             $traceId = bin2hex(random_bytes(16));
             $requestId = bin2hex(random_bytes(8));
 
             $logId = $this->jobLog->logStart($id, (string) $job['agent_name'], $skillId, (string) $job['job_name'], $payload);
 
-            try {
-                $result = $this->a2aClient->invoke($skillId, $payload, $traceId, $requestId, 'scheduler');
-                $status = (string) ($result['status'] ?? 'unknown');
+            // Compute and update next_run_at BEFORE dispatch (crash-safe)
+            $nextRunAt = null !== $cronExpression
+                ? $this->cronHelper->computeNextRun($cronExpression, $timezone)->format('Y-m-d H:i:sP')
+                : null;
 
-                if ('failed' === $status) {
-                    $errorMsg = (string) ($result['error'] ?? $result['message'] ?? 'Agent returned failed status');
-                    $this->jobLog->logFinish($logId, 'failed', $errorMsg, $result);
-                    $this->handleFailure($id, $retryCount, $maxRetries, $retryDelaySeconds, $job);
-                } else {
-                    $this->jobLog->logFinish($logId, 'completed', null, $result);
+            $this->repository->updateAfterRun($id, 'running', $nextRunAt);
 
-                    $nextRunAt = null !== $cronExpression
-                        ? $this->cronHelper->computeNextRun($cronExpression, $timezone)->format('Y-m-d H:i:sP')
-                        : null;
-
-                    $this->repository->updateAfterRun($id, 'completed', $nextRunAt);
-
-                    $this->logger->info('Scheduled job executed', [
-                        'job_id' => $id,
-                        'agent' => $job['agent_name'],
-                        'job' => $job['job_name'],
-                        'skill' => $skillId,
-                        'next_run_at' => $nextRunAt,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                $this->jobLog->logFinish($logId, 'failed', $e->getMessage());
-                $this->handleFailure($id, $retryCount, $maxRetries, $retryDelaySeconds, $job, $e);
-            }
-
-            ++$executed;
+            $dispatchBatch[] = [
+                'id' => $id,
+                'skill_id' => $skillId,
+                'payload' => $payload,
+                'trace_id' => $traceId,
+                'request_id' => $requestId,
+                'log_id' => $logId,
+                'cron_expression' => $cronExpression,
+                'timezone' => $timezone,
+                'retry_count' => (int) ($job['retry_count'] ?? 0),
+                'max_retries' => (int) ($job['max_retries'] ?? 3),
+                'retry_delay_seconds' => (int) ($job['retry_delay_seconds'] ?? 60),
+                'agent_name' => (string) $job['agent_name'],
+                'job_name' => (string) $job['job_name'],
+            ];
         }
 
         $this->connection->commit();
 
-        return $executed;
+        // === Phase 2: Async dispatch — all A2A calls in parallel ===
+        $results = $this->asyncDispatcher->dispatchAll($dispatchBatch);
+
+        // === Phase 3: Process results — log finishes, handle retries ===
+        foreach ($dispatchBatch as $entry) {
+            $id = $entry['id'];
+            $logId = $entry['log_id'];
+            $result = $results[$id] ?? ['status' => 'failed', 'error' => 'No dispatch result'];
+
+            if ('completed' === $result['status']) {
+                $this->jobLog->logFinish($logId, 'completed', null, $result['result'] ?? []);
+                $this->repository->updateAfterRun($id, 'completed', null);
+
+                $this->logger->info('Scheduled job executed', [
+                    'job_id' => $id,
+                    'agent' => $entry['agent_name'],
+                    'job' => $entry['job_name'],
+                    'skill' => $entry['skill_id'],
+                ]);
+            } else {
+                $errorMsg = (string) ($result['error'] ?? 'Unknown error');
+                $this->jobLog->logFinish($logId, 'failed', $errorMsg, $result['result'] ?? null);
+                $this->handleFailure(
+                    $id,
+                    $entry['retry_count'],
+                    $entry['max_retries'],
+                    $entry['retry_delay_seconds'],
+                    ['agent_name' => $entry['agent_name'], 'job_name' => $entry['job_name']],
+                );
+            }
+        }
+
+        return count($dispatchBatch);
     }
 
     /**

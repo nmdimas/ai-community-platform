@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Command;
 
 use App\Scheduler\SchedulerService;
+use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -21,6 +22,7 @@ final class SchedulerRunCommand extends Command implements SignalableCommandInte
 
     public function __construct(
         private readonly SchedulerService $schedulerService,
+        private readonly Connection $connection,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct();
@@ -49,6 +51,7 @@ final class SchedulerRunCommand extends Command implements SignalableCommandInte
 
         while (!$this->shouldStop) {
             try {
+                $this->ensureConnection();
                 $executed = $this->schedulerService->tick();
 
                 if ($executed > 0) {
@@ -67,5 +70,15 @@ final class SchedulerRunCommand extends Command implements SignalableCommandInte
         $this->logger->info('Scheduler stopped');
 
         return Command::SUCCESS;
+    }
+
+    private function ensureConnection(): void
+    {
+        try {
+            $this->connection->executeQuery('SELECT 1');
+        } catch (\Throwable) {
+            $this->connection->close();
+            $this->logger->info('Scheduler DB connection reset, will reconnect on next query');
+        }
     }
 }

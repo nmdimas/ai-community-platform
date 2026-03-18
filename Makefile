@@ -401,11 +401,14 @@ e2e-smoke: e2e-prepare
 sync-skills:
 	./scripts/sync-skills.sh
 
-# ── Multi-Agent Pipeline ─────────────────────────────────────────────
+# ── Multi-Agent Builder Pipeline ─────────────────────────────────────
 pipeline:
 	@test -n "$(TASK)" || (echo "Usage: make pipeline TASK=\"your task description\"" && exit 1)
-	./scripts/pipeline.sh "$(TASK)"
+	./builder/pipeline.sh "$(TASK)"
 
 pipeline-batch:
 	@test -n "$(FILE)" || (echo "Usage: make pipeline-batch FILE=tasks.txt" && exit 1)
-	./scripts/pipeline-batch.sh "$(FILE)"
+	./builder/pipeline-batch.sh "$(FILE)"
+
+builder-setup:
+	./builder/setup.sh

@@ -8,8 +8,9 @@ The platform provides a centralized, persistent job scheduler in `apps/core`. An
 
 - **`ScheduledJobRepository`** — DBAL-based CRUD for the `scheduled_jobs` PostgreSQL table
 - **`CronExpressionHelper`** — Wrapper around `dragonmantank/cron-expression` for cron parsing
-- **`SchedulerService`** — Orchestrates tick logic: find due jobs, invoke via A2AClient, handle retries
-- **`SchedulerRunCommand`** (`scheduler:run`) — Long-running Symfony command, polls every 10 seconds
+- **`AsyncA2ADispatcher`** — Non-blocking HTTP client using ReactPHP for concurrent A2A dispatch
+- **`SchedulerService`** — Orchestrates tick logic: find due jobs, dispatch concurrently via AsyncA2ADispatcher, handle retries
+- **`SchedulerRunCommand`** (`scheduler:run`) — Long-running Symfony command, polls every 10 seconds, with DB keepalive
 - **`core-scheduler`** Docker service — Runs the command as a separate process
 
 ## Database Table
@@ -107,6 +108,35 @@ Jobs are automatically managed during agent lifecycle events:
 ## Catch-Up Policy
 
 If the scheduler restarts after downtime, overdue jobs (where `next_run_at` is in the past) are executed **once** on the next tick. The `next_run_at` is then recomputed from the current time using the cron expression — missed intervals are not replayed.
+
+## Async Dispatch
+
+The scheduler dispatches all due A2A calls **concurrently** using ReactPHP (`react/http` + `react/async`). A single PHP process handles multiple simultaneous agent calls without blocking.
+
+### How It Works
+
+The `tick()` method executes in two phases:
+
+1. **Phase 1 (transactional):** Find due jobs via `FOR UPDATE SKIP LOCKED`, log starts, compute and update `next_run_at`, commit transaction. This ensures crash-safety — if the process dies during Phase 2, jobs won't be double-picked.
+
+2. **Phase 2 (async):** `AsyncA2ADispatcher::dispatchAll()` fires all A2A HTTP POST requests in parallel using `React\Http\Browser`. Results are collected when all promises resolve, then each job's log and retry state are updated.
+
+### Concurrency Limit
+
+The `SCHEDULER_CONCURRENCY_LIMIT` environment variable (default: `20`) caps the number of simultaneous in-flight A2A requests. If more jobs are due, they are dispatched in batches as in-flight calls complete.
+
+### Per-Job Timeout
+
+Each async HTTP request has a 30-second timeout. A slow agent does not block other concurrent calls.
+
+### Error Isolation
+
+Each promise is individually wrapped — one agent's failure (timeout, connection error, application error) does not affect other concurrent jobs. Failed jobs follow the standard retry/dead-letter policy.
+
+### Dependencies
+
+- `react/http` ^1.11 — Non-blocking HTTP client
+- `react/async` ^4.3 — `await()` bridge for synchronous code
 
 ## Concurrency Control
 

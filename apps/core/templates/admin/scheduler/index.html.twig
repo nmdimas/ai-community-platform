@@ -25,6 +25,43 @@
 {% endblock %}
 
 {% block content %}
+    <div class="stats-grid" style="margin-bottom:1rem;">
+        <div class="stat-card">
+            <div class="stat-label">Завдань</div>
+            <div class="stat-value">{{ stats.total_jobs }}</div>
+            <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem;">
+                {{ stats.enabled_jobs }} активних / {{ stats.disabled_jobs }} вимкн.
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Виконань (24г)</div>
+            <div class="stat-value text-success">{{ stats.runs_24h }}</div>
+            <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem;">
+                {{ stats.completed_24h }} ок / {{ stats.failed_24h }} помилок
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Проблемних</div>
+            <div class="stat-value{% if stats.failed_jobs > 0 or stats.stale_jobs > 0 %} text-danger{% endif %}">{{ stats.failed_jobs + stats.stale_jobs }}</div>
+            <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem;">
+                {{ stats.failed_jobs }} failed / {{ stats.stale_jobs }} stale
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Останній запуск</div>
+            <div class="stat-value" style="font-size:1rem;">
+                {% if stats.last_run %}
+                    {{ stats.last_run|date('H:i:s') }}
+                {% else %}
+                    —
+                {% endif %}
+            </div>
+            <div style="font-size:.7rem;color:var(--text-muted);margin-top:.2rem;">
+                {% if stats.last_run %}{{ stats.last_run|date('d.m.Y') }}{% else %}немає даних{% endif %}
+            </div>
+        </div>
+    </div>
+
     <div class="glass-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem;">
             <span style="font-size:.85rem;color:var(--text-secondary);">Всього завдань: {{ jobs|length }}</span>

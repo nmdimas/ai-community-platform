@@ -5,7 +5,7 @@ RUN apt-get update && apt-get install -y \
         libicu-dev \
         libzip-dev \
         unzip \
-    && docker-php-ext-install pdo_pgsql zip \
+    && docker-php-ext-install pdo_pgsql zip pcntl \
     && docker-php-ext-configure intl \
     && docker-php-ext-install intl \
     && pecl install redis \

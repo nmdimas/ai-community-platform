@@ -58,10 +58,22 @@ The monitor reads from the filesystem only — no live process communication:
 | `a` | Archive completed tasks |
 | `q` | Quit (or back from log/detail view) |
 
+### Post-Rewrite Enhancements (v0.12.0–v0.13.0)
+
+After the initial rewrite, additional capabilities were added:
+
+1. **Render performance caching**: Cache worker detection, task list, log scanning, and task counts with a 2-cycle TTL. Bash built-ins replace external commands (`find`, `grep`, `sed`). Reduces subprocess count from ~50-70 to ~5-10 per render cycle.
+2. **Automatic log cleanup**: Old `.log`, `.meta.json`, and report files are cleaned up on startup (default retention: 7 days).
+3. **Worker liveness detection**: `_worker_is_alive()` uses pgrep + worktree mtime fallback. Dead worker tabs are automatically removed.
+4. **Token aggregation and cost estimation**: Aggregates token usage from `.meta.json` sidecar files. Estimates cost at Claude Sonnet rates. Displayed in a cost bar at the bottom of every tab.
+5. **OpenRouter provider balance**: Queries OpenRouter API for usage/limit with color-coded percentage display.
+6. **Cost breakdown in summary**: `scripts/pipeline.sh` appends a per-agent cost table to the summarizer's output file.
+7. **macOS bash 3.2 array safety**: All empty array expansions are safe under `set -u` using index-based loops, safe expansion patterns, and early return guards.
+
 ## Impact
 
 - **Replaced**: `scripts/pipeline-monitor.sh` — full rewrite, same filename
-- **No other files changed**
+- **Modified**: `scripts/pipeline.sh` — cost breakdown appended to summary file
 - **Backward compatible**: same CLI usage, same keyboard shortcuts, same task folder structure
 
 ## Tech Stack
