@@ -66,12 +66,12 @@ FREE_MODELS="${PIPELINE_FREE_MODELS:-opencode/big-pickle,opencode/gpt-5-nano,ope
 # Fallback model chains (override via env: PIPELINE_FALLBACK_ARCHITECT="model1,model2")
 # Tiers: subscriptions (Claude+Codex) → free (OpenRouter) → cheap (paid per-token)
 # Subscriptions already paid (flat rate), free costs nothing, cheap is last resort
-FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-anthropic/claude-sonnet-4-6,openai/gpt-5.3-codex,free,cheap}"
-FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openai/gpt-5.3-codex,anthropic/claude-opus-4-6,free,cheap}"
-FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,free,cheap}"
-FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-anthropic/claude-sonnet-4-6,openai/codex-mini-latest,free,cheap}"
-FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-anthropic/claude-opus-4-6,free,cheap}"
-FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-anthropic/claude-sonnet-4-6,free,cheap}"
+FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-anthropic/claude-sonnet-4-20250514,openai/gpt-5.3-codex,free,cheap}"
+FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openai/gpt-5.3-codex,anthropic/claude-opus-4-20250514,free,cheap}"
+FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-anthropic/claude-sonnet-4-20250514,openai/codex-mini-latest,free,cheap}"
+FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-anthropic/claude-sonnet-4-20250514,openai/codex-mini-latest,free,cheap}"
+FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-anthropic/claude-opus-4-20250514,free,cheap}"
+FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-anthropic/claude-sonnet-4-20250514,free,cheap}"
 FALLBACK_SUMMARIZER="${PIPELINE_FALLBACK_SUMMARIZER:-openai/gpt-5.4,openai/gpt-5.3-codex,free,cheap}"
 
 # ── Help ──────────────────────────────────────────────────────────────
@@ -1353,12 +1353,12 @@ run_agent() {
       (cd "$REPO_ROOT" && timeout "$agent_timeout" opencode run \
         --agent "$agent" \
         "$message") \
-        2>&1 | tee "$log_file" &
+        < /dev/null 2>&1 | tee "$log_file" &
     else
       (cd "$REPO_ROOT" && opencode run \
         --agent "$agent" \
         "$message") \
-        2>&1 | tee "$log_file" &
+        < /dev/null 2>&1 | tee "$log_file" &
     fi
     local agent_pid=$!
 

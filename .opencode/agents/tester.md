@@ -1,7 +1,7 @@
 ---
 description: "Tester agent: runs unit and functional tests, writes missing tests, fixes failures"
 mode: primary
-model: claude-sonnet-4-20250514
+model: anthropic/claude-sonnet-4-20250514
 temperature: 0
 tools:
   edit: true

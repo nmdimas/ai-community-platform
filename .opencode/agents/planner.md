@@ -1,7 +1,7 @@
 ---
 description: "Planner agent: analyzes task complexity and outputs pipeline configuration as JSON"
 mode: primary
-model: claude-sonnet-4-20250514
+model: anthropic/claude-opus-4-20250514
 temperature: 0.1
 tools:
   read: true

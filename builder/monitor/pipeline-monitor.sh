@@ -1207,7 +1207,8 @@ action_start() {
   if [[ $todo_count -eq 0 ]]; then
     ACTION_MSG="${YELLOW}No tasks in todo/${RESET}"; return
   fi
-  caffeinate -s nohup "$REPO_ROOT/builder/pipeline-batch.sh" \
+  local _caff=""; command -v caffeinate &>/dev/null && _caff="caffeinate -s"
+  $_caff nohup "$REPO_ROOT/builder/pipeline-batch.sh" \
     --workers "$WORKERS" --no-stop-on-failure --watch "$TASK_SOURCE" \
     > "$REPO_ROOT/batch.log" 2>&1 &
   ACTION_MSG="${GREEN}Started batch ($todo_count tasks, $WORKERS workers, PID $!)${RESET}"
@@ -1370,7 +1371,8 @@ autostart_check() {
   if ! is_batch_running; then
     # No batch running but tasks waiting → start batch
     AUTOSTART_LAST=$now
-    caffeinate -s nohup "$REPO_ROOT/builder/pipeline-batch.sh" \
+    local _caff=""; command -v caffeinate &>/dev/null && _caff="caffeinate -s"
+    $_caff nohup "$REPO_ROOT/builder/pipeline-batch.sh" \
       --workers "$WORKERS" --no-stop-on-failure --watch "$TASK_SOURCE" \
       > "$REPO_ROOT/batch.log" 2>&1 &
     ACTION_MSG="${GREEN}Auto-started batch ($todo_count tasks, $WORKERS workers, PID $!)${RESET}"

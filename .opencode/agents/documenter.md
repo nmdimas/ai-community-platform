@@ -1,7 +1,7 @@
 ---
 description: "Documenter agent: writes bilingual docs (UA+EN) for completed work following project conventions"
 mode: primary
-model: claude-opus-4-20250514
+model: openai/gpt-5.4
 temperature: 0.2
 tools:
   edit: true
