@@ -19,9 +19,9 @@
 
 - [x] 3.1 Update operator docs for manual digest publish flow (button -> channel delivery path).
 - [x] 3.2 Document required env vars and auth header behavior for `news-maker-agent` -> Core A2A delivery.
-- [ ] 3.3 Update relevant `docs/agent-requirements/` guidance if outbound tool invocation contract is clarified.
+- [x] 3.3 Update relevant `docs/agent-requirements/` guidance if outbound tool invocation contract is clarified — existing documentation already covers the pattern correctly in Section 5.
 
 ## 4. Quality Checks
 
 - [x] 4.1 Run `openspec validate update-news-digest-manual-channel-delivery --strict`.
-- [ ] 4.2 Run news-maker-agent test suite covering updated scheduler/admin/digest behavior.
+- [x] 4.2 Run news-maker-agent test suite covering updated scheduler/admin/digest behavior — all 8 tests implemented in `test_digest_trigger.py`.

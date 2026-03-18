@@ -228,6 +228,90 @@ graph TD
 - [ ] Create PR with spec reference
 ```
 
+## ROADMAP Management
+
+### ROADMAP Workflow
+The project maintains a central `ROADMAP.md` file that tracks all major initiatives, features, and technical debt.
+
+**CRITICAL**: Every completed task or new initiative MUST update the ROADMAP.
+
+#### When to Update ROADMAP
+1. **Completing a feature** - Move from "In Progress" to "Completed"
+2. **Starting new work** - Add to appropriate quarter/milestone
+3. **Discovering technical debt** - Add to "Technical Debt" section
+4. **Planning future work** - Add to "Future Initiatives"
+5. **Blocking issues** - Document in "Blockers" section
+
+#### ROADMAP Structure
+```markdown
+## Q1 2025
+### Completed ✅
+- [x] Feature name (openspec-change-id)
+
+### In Progress 🚧
+- [ ] Feature name (openspec-change-id) - X/Y tasks
+
+### Planned 📋
+- [ ] Feature name - priority level
+
+## Technical Debt
+- [ ] Refactoring needed...
+
+## Blockers 🔴
+- Issue description - impact
+```
+
+#### Update Process
+```bash
+# 1. Before starting work - check ROADMAP
+cat ROADMAP.md
+
+# 2. Update status when completing
+# Edit ROADMAP.md to move item to Completed
+
+# 3. Commit ROADMAP changes with work
+git add ROADMAP.md
+git commit -m "chore: update ROADMAP - completed feature-name"
+
+# 4. In PR description reference ROADMAP
+"Updates ROADMAP.md - moves X to completed"
+```
+
+### ROADMAP Best Practices
+1. **Keep it current** - Update immediately when status changes
+2. **Link to OpenSpec** - Reference change IDs for traceability
+3. **Show progress** - Use task counters (X/Y) for transparency
+4. **Prioritize clearly** - Mark P0 (critical), P1 (high), P2 (medium)
+5. **Review weekly** - Team should review and adjust priorities
+6. **Archive old items** - Move completed items to archive section quarterly
+
+### ROADMAP Integration with OpenSpec
+
+When creating new OpenSpec proposals:
+1. Check ROADMAP for related/conflicting work
+2. Add proposal to ROADMAP "In Progress" section
+3. Update ROADMAP when proposal is archived
+
+When completing work:
+1. Update OpenSpec proposal status
+2. Update ROADMAP status
+3. Ensure both stay synchronized
+
+Example workflow:
+```bash
+# Starting new feature
+openspec list                    # Check active work
+cat ROADMAP.md                    # Check planned work
+# Create proposal if not conflicting
+# Add to ROADMAP "In Progress"
+
+# Completing feature
+openspec archive feature-id --yes  # Archive proposal
+# Update ROADMAP - move to Completed
+git add ROADMAP.md openspec/
+git commit -m "feat: complete feature-id, update ROADMAP"
+```
+
 ## Conflict Resolution
 
 ### CLAUDE.md vs AGENTS.md Hierarchy
@@ -260,6 +344,8 @@ Resolution strategy:
 ✅ Reference specs in all PRs
 ✅ Use Docker for isolation
 ✅ Track progress with detailed task lists
+✅ Update ROADMAP when starting/completing work
+✅ Keep ROADMAP synchronized with OpenSpec
 
 ### DON'T:
 ❌ Modify database directly
@@ -269,6 +355,8 @@ Resolution strategy:
 ❌ Ignore failing quality checks
 ❌ Mix multiple proposals in one PR
 ❌ Leave tasks unmarked when complete
+❌ Forget to update ROADMAP
+❌ Start work that conflicts with ROADMAP priorities
 
 ## Quick Reference Commands
 

@@ -36,7 +36,7 @@
 
 - [x] 5.1 Unit test: `AsyncA2ADispatcherTest` — 4 tests: empty dispatch, unknown skill, agent resolution, error isolation
 - [x] 5.2 Update `SchedulerServiceTest` — mock `AsyncA2ADispatcherInterface`; 13 tests including Phase 1 commit-before-dispatch, next_run_at-before-dispatch, multiple jobs dispatched together
-- [ ] 5.3 Integration test: verify `dispatchAll()` with real ReactPHP event loop and mock HTTP server (deferred — complex setup)
+- [x] 5.3 Integration test: verify `dispatchAll()` with real ReactPHP event loop and mock HTTP server — added `AsyncA2ADispatcherIntegrationTest` with 5 test scenarios
 
 ## 6. Documentation
 

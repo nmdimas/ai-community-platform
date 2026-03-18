@@ -1,0 +1,34 @@
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/ai-community-platform:cached
+      - vscode-server:/home/vscode/.vscode-server
+      - claude-config:/home/vscode/.claude
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY}
+      - CLAUDE_CODE_DANGER_MODE=true
+      - CLAUDE_CODE_AUTO_APPROVE=true
+      - CLAUDE_DANGER_MODE=true
+      - CLAUDE_AUTO_APPROVE_ALL=true
+    command: sleep infinity
+
+  codex:
+    image: ghcr.io/semanser/codel:latest
+    volumes:
+      - ..:/workspaces/ai-community-platform:cached
+      - codex-config:/root/.codex
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    ports:
+      - "8080:8080"
+    command: ["serve", "--host", "0.0.0.0"]
+
+volumes:
+  vscode-server:
+  claude-config:
+  codex-config:
+

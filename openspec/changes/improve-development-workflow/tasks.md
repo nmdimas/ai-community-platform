@@ -27,7 +27,13 @@
 - [x] 4.3 Create implementation priority guide
 - [x] 4.4 Add visual workflow diagram (Mermaid)
 
-## 5. Quality Checks
-- [ ] 5.1 Validate proposal with OpenSpec
-- [ ] 5.2 Review with team for feedback
-- [ ] 5.3 Update based on feedback
+## 5. ROADMAP Management
+- [x] 5.1 Add ROADMAP management section to workflow guidelines
+- [x] 5.2 Update ROADMAP.md with current project state
+- [x] 5.3 Add ROADMAP synchronization requirement to spec
+- [x] 5.4 Document how to update ROADMAP
+
+## 6. Quality Checks
+- [x] 6.1 Validate proposal with OpenSpec
+- [ ] 6.2 Review with team for feedback
+- [ ] 6.3 Update based on feedback

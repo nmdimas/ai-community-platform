@@ -34,3 +34,11 @@ suites:
                     url: /
                 - Asserts
                 - \Helper\Functional
+
+    Integration:
+        path: Integration
+        actor: IntegrationTester
+        modules:
+            enabled:
+                - Asserts
+                - \Helper\Integration

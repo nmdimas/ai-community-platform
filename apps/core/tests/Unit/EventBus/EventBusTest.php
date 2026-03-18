@@ -8,6 +8,7 @@ use App\AgentRegistry\AgentRegistryInterface;
 use App\EventBus\EventBus;
 use Codeception\Test\Unit;
 use PHPUnit\Framework\MockObject\MockObject;
+use Psr\Log\NullLogger;
 
 /**
  * Tests the internal event bus logic for broadcasting events to agents.
@@ -22,7 +23,7 @@ final class EventBusTest extends Unit
     protected function setUp(): void
     {
         $this->registry = $this->createMock(AgentRegistryInterface::class);
-        $this->eventBus = new EventBus($this->registry);
+        $this->eventBus = new EventBus($this->registry, new NullLogger());
     }
 
     public function testDispatchDoesNotCallRegistryWhenNoEnabledAgents(): void

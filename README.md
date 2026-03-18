@@ -2,6 +2,10 @@
 
 [🇺🇦 Українська версія](README.ua.md)
 
+> ⚠️ **Project Status: Early Alpha / Architecture Phase**  
+> This project is currently in a documentation-first design phase using OpenSpec. While foundational infrastructure (Symfony 7, Docker, LiteLLM) is bootstrapped, core features like multi-tenancy, robust agent routing, and production readiness are actively being designed.  
+> 🗺️ **[View our ROADMAP.md for detailed progress and plans.](ROADMAP.md)**
+
 ## Description
 
 **AI Community Platform** is an innovative architectural ecosystem for building scalable **Agentic Solutions**. The platform offers a universal, modular approach where autonomous AI agents and classical microservices act as flexible "building blocks" (bricks) to construct systems of any complexity.
