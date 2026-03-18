@@ -26,11 +26,15 @@ make builder-setup
 
 ```
 builder/
-  README.md                     # цей файл
+  README.md                     # цей файл (загальний огляд)
+  AGENTS.md                     # 📖 Документація про агентів
+  PROVIDERS.md                  # 📖 Налаштування AI провайдерів
   setup.sh                      # створює gitignored директорії
   pipeline.sh                   # основний оркестратор агентів
   pipeline-batch.sh             # пакетний запуск задач
   pipeline-stats.sh             # статистика виконання
+  agents-config.sh              # CLI для управління моделями агентів
+  validate-config.sh            # валідація конфігурації
   skill/                        # Claude skill для створення задач
     SKILL.md
     references/example-task.md
@@ -41,6 +45,22 @@ builder/
   tasks/                        # черга задач (gitignored, створюється setup.sh)
     todo/ in-progress/ done/ failed/ summary/ artifacts/ archive/
 ```
+
+## Документація
+
+- **[AGENTS.md](AGENTS.md)** - Детальна документація про агентів:
+  - Як працюють агенти
+  - Де знаходяться системні промпти
+  - Як конфігурувати fallback моделі
+  - Як додати свого агента
+
+- **[PROVIDERS.md](PROVIDERS.md)** - Налаштування AI провайдерів (Claude, Codex, OpenRouter, Gemini)
+
+- **[docs/setup/QUICKSTART.md](../docs/setup/QUICKSTART.md)** - Швидкий старт для нових користувачів
+
+- **[docs/setup/ai-providers.md](../docs/setup/ai-providers.md)** - Покрокове налаштування провайдерів
+
+- **[docs/setup/gemini-strategy.md](../docs/setup/gemini-strategy.md)** - Оптимізація витрат через Gemini
 
 ## Використання
 
