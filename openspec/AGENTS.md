@@ -48,17 +48,31 @@ Skip proposal for:
 
 ### Stage 2: Implementing Changes
 Track these steps as TODOs and complete them one by one.
+
 1. **Read proposal.md** - Understand what's being built
 2. **Read design.md** (if exists) - Review technical decisions
 3. **Read tasks.md** - Get implementation checklist
-4. **Implement tasks sequentially** - Complete in order
-5. **Update documentation** - Every proposal that introduces or changes a capability MUST update `docs/`. Rules:
+4. **Database migrations** - Create migrations for ALL schema changes:
+   - Use `php bin/console make:migration` for new migrations
+   - Review generated SQL before applying
+   - Test migrations in development first
+   - Include rollback strategy for complex changes
+5. **Write tests first** - TDD approach for all new features:
+   - Unit tests for business logic
+   - Integration tests for services
+   - Functional tests for user flows
+   - All tests MUST be written before implementation
+6. **Implement tasks sequentially** - Complete in order, committing frequently:
+   - Make atomic commits with descriptive messages
+   - Push regularly to feature branch
+   - Keep PR updated with progress
+7. **Update documentation** - Every proposal that introduces or changes a capability MUST update `docs/`. Rules:
    - Developer-facing docs (contracts, conventions, runbooks): English, place under `docs/`
    - User/operator-facing docs: Ukrainian canonical + `.en.md` English mirror
    - Every `tasks.md` MUST contain a documentation task as the final step before quality checks
    - If the change affects agent contracts or platform conventions, update `docs/agent-requirements/`
-6. **Confirm completion** - Ensure every item in `tasks.md` is finished before updating statuses
-7. **Run quality checks and automated tests** - Execute all applicable tools before marking done:
+   - Reference the workflow guidelines in `docs/WORKFLOW_GUIDELINES.md`
+8. **Run quality checks and automated tests** - Execute all applicable tools before marking done:
    - `phpstan analyse` — zero errors at level 8
    - `php-cs-fixer check` — no style violations
    - `codecept run` — all unit + functional suites pass
@@ -66,8 +80,12 @@ Track these steps as TODOs and complete them one by one.
    - `make e2e` — Playwright E2E passes (requires running Docker stack)
    - If a Makefile target or CI script exists that wraps the above, prefer running it
    - Do not proceed to the next step if any check fails
-8. **Update checklist** - After all work is done and checks pass, set every task to `- [x]` so the list reflects reality
-9. **Approval gate** - Do not start implementation until the proposal is reviewed and approved
+9. **Create pull request** - Include OpenSpec reference:
+   - Title: Clear, action-oriented
+   - Body: Reference proposal, tasks completed, testing status
+   - All tests MUST pass before creating PR
+10. **Update checklist** - After all work is done and checks pass, set every task to `- [x]` so the list reflects reality
+11. **Approval gate** - Do not start implementation until the proposal is reviewed and approved
 
 ### Stage 3: Archiving Changes
 After deployment, create separate PR to:
