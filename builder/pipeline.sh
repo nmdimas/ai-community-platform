@@ -1965,6 +1965,11 @@ main() {
   # Initialize handoff
   init_handoff
 
+  # Emit task start event
+  local task_title
+  task_title=$(echo "$TASK_MESSAGE" | grep -m1 '^# ' | sed 's/^# //' || echo "$TASK_MESSAGE" | head -c 60)
+  emit_event "TASK_START" "task=${task_title}"
+
   # Initialize artifacts & checkpoint
   local slug
   slug=$(_task_slug "$TASK_MESSAGE")
@@ -2300,12 +2305,14 @@ PYEOF
   echo ""
   echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   if $failed; then
+    emit_event "TASK_FAIL" "agent=${failed_agent}|duration=$(( total_duration / 60 ))m"
     echo -e "${RED}Pipeline FAILED at agent: ${failed_agent}${NC}"
     echo -e "${BLUE}Report:${NC}  ${report_file}"
     [[ -f "$TASK_SUMMARY_FILE" ]] && echo -e "${BLUE}Task MD:${NC} ${TASK_SUMMARY_FILE}"
     echo -e "${YELLOW}Logs:${NC}    ${LOG_DIR}/${TIMESTAMP}_*.log${NC}"
     exit 1
   else
+    emit_event "TASK_DONE" "duration=$(( total_duration / 60 ))m"
     echo -e "${GREEN}Pipeline COMPLETED in $(( total_duration / 60 )) min${NC}"
     echo -e "${BLUE}Branch:${NC}  ${branch}"
     echo -e "${BLUE}Report:${NC}  ${report_file}"

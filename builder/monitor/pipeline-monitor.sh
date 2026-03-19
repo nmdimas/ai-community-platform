@@ -922,6 +922,15 @@ render_logs_tab() {
             [[ -n "$e_tok" ]] && extra+="  ${DIM}${e_tok}${RESET}"
             buf_line "  ${icon} ${DIM}${e_time}${RESET}  ${CYAN}${e_agent}${RESET}${extra}"
             ;;
+          TASK_DONE)
+            local e_dur; e_dur=$(echo "$e_details" | grep -oP 'duration=\K[^|]+' || echo "")
+            buf_line "  ${GREEN}■${RESET} ${DIM}${e_time}${RESET}  ${GREEN}${BOLD}DONE${RESET}  ${DIM}${e_dur}${RESET}"
+            ;;
+          TASK_FAIL)
+            local e_agent; e_agent=$(echo "$e_details" | grep -oP 'agent=\K[^|]+' || echo "?")
+            local e_dur; e_dur=$(echo "$e_details" | grep -oP 'duration=\K[^|]+' || echo "")
+            buf_line "  ${RED}■${RESET} ${DIM}${e_time}${RESET}  ${RED}${BOLD}FAIL${RESET}  ${DIM}at ${e_agent} (${e_dur})${RESET}"
+            ;;
           *)
             buf_line "  ${DIM}${e_time}  ${e_type}  ${e_details}${RESET}"
             ;;
