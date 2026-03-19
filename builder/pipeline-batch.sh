@@ -326,6 +326,104 @@ move_to_in_progress() {
   echo "$dest"
 }
 
+_build_task_meta() {
+  local status="$1" task_branch="$2" duration="$3"
+  local wt_log="${WORKTREE_BASE:-$REPO_ROOT/.pipeline-worktrees}/worker-1/.opencode/pipeline/logs"
+
+  echo ""
+  echo "---"
+  echo ""
+  echo "## Pipeline Run"
+  echo ""
+  echo "- **Batch:** ${BATCH_TIMESTAMP}"
+  echo "- **Status:** ${status}"
+  echo "- **Duration:** ${duration}s ($(( duration / 60 ))m $(( duration % 60 ))s)"
+  echo "- **Branch:** \`${task_branch}\`"
+  echo "- **Date:** $(date '+%Y-%m-%d %H:%M:%S')"
+  echo ""
+
+  # Plan info
+  local plan_file="$wt_log/${BATCH_TIMESTAMP}_plan.json"
+  # Try to find plan.json by matching timestamp prefix from meta files
+  if [[ ! -f "$plan_file" ]]; then
+    plan_file=$(ls -t "$wt_log"/*_plan.json 2>/dev/null | head -1 || true)
+  fi
+  if [[ -f "$plan_file" ]]; then
+    local profile reasoning agents_str
+    profile=$(jq -r '.profile // "?"' "$plan_file" 2>/dev/null)
+    reasoning=$(jq -r '.reasoning // ""' "$plan_file" 2>/dev/null)
+    agents_str=$(jq -r '.agents // [] | join(" → ")' "$plan_file" 2>/dev/null)
+    echo "### Plan"
+    echo ""
+    echo "- **Profile:** ${profile}"
+    echo "- **Agents:** ${agents_str}"
+    [[ -n "$reasoning" ]] && echo "- **Reasoning:** ${reasoning}"
+    echo ""
+  fi
+
+  # Agent steps from meta.json files
+  local meta_files=()
+  if [[ -d "$wt_log" ]]; then
+    while IFS= read -r f; do
+      [[ -n "$f" ]] && meta_files+=("$f")
+    done < <(ls -t "$wt_log"/*.meta.json 2>/dev/null)
+  fi
+
+  if [[ ${#meta_files[@]} -gt 0 ]]; then
+    echo "### Agent Steps"
+    echo ""
+    echo "| Agent | Model | Duration | Tokens (in/out) | Cache | Cost | Status |"
+    echo "|-------|-------|----------|-----------------|-------|------|--------|"
+
+    # Sort by started_epoch ascending
+    local sorted_metas
+    sorted_metas=$(for f in "${meta_files[@]}"; do
+      local epoch
+      epoch=$(jq -r '.started_epoch // 0' "$f" 2>/dev/null)
+      echo "${epoch}|${f}"
+    done | sort -t'|' -k1 -n)
+
+    local total_in=0 total_out=0 total_cache=0 total_cost="0"
+    while IFS='|' read -r _epoch meta_f; do
+      [[ -z "$meta_f" ]] && continue
+      local a m d e it ot cr co
+      a=$(jq -r '.agent // "?"' "$meta_f" 2>/dev/null)
+      m=$(jq -r '.model // "?"' "$meta_f" 2>/dev/null)
+      d=$(jq -r '.duration_seconds // 0' "$meta_f" 2>/dev/null)
+      e=$(jq -r '.exit_code // 0' "$meta_f" 2>/dev/null)
+      it=$(jq -r '.tokens.input_tokens // 0' "$meta_f" 2>/dev/null)
+      ot=$(jq -r '.tokens.output_tokens // 0' "$meta_f" 2>/dev/null)
+      cr=$(jq -r '.tokens.cache_read // 0' "$meta_f" 2>/dev/null)
+      co=$(jq -r '.tokens.cost // 0' "$meta_f" 2>/dev/null)
+
+      # Short model name
+      m="${m#*/}"
+      m="${m/claude-opus-4-20250514/opus-4}"
+      m="${m/claude-sonnet-4-20250514/sonnet-4}"
+      m="${m/codex-mini-latest/codex-mini}"
+
+      local status_icon="✓"
+      [[ "$e" -ne 0 ]] && status_icon="✗"
+
+      local dur_str="${d}s"
+      [[ $d -ge 60 ]] && dur_str="$(( d / 60 ))m $(( d % 60 ))s"
+
+      local cost_str="\$0"
+      [[ "$co" != "0" && -n "$co" ]] && cost_str="\$$(echo "$co" | awk '{printf "%.2f", $1}')"
+
+      echo "| ${a} | ${m} | ${dur_str} | ${it} / ${ot} | ${cr} | ${cost_str} | ${status_icon} |"
+
+      total_in=$(( total_in + ${it:-0} ))
+      total_out=$(( total_out + ${ot:-0} ))
+      total_cache=$(( total_cache + ${cr:-0} ))
+      total_cost=$(echo "$total_cost ${co:-0}" | awk '{printf "%.4f", $1 + $2}')
+    done <<< "$sorted_metas"
+
+    echo "| **Total** | | **${duration}s** | **${total_in} / ${total_out}** | **${total_cache}** | **\$$(echo "$total_cost" | awk '{printf "%.2f", $1}')** | |"
+    echo ""
+  fi
+}
+
 move_to_done() {
   local src="$1"
   local task_branch="$2"
@@ -335,6 +433,7 @@ move_to_done() {
   {
     echo "<!-- batch: ${BATCH_TIMESTAMP} | status: pass | duration: ${duration}s | branch: ${task_branch} -->"
     cat "$src"
+    _build_task_meta "PASS" "$task_branch" "$duration"
   } > "$dest"
   rm -f "$src"
   # Clean up leftover failed copy from a previous attempt (e.g. auto-fix retry)
@@ -350,6 +449,7 @@ move_to_failed() {
   {
     echo "<!-- batch: ${BATCH_TIMESTAMP} | status: fail | duration: ${duration}s | branch: ${task_branch} -->"
     cat "$src"
+    _build_task_meta "FAIL" "$task_branch" "$duration"
   } > "$dest"
   rm -f "$src"
 
