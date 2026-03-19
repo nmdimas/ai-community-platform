@@ -27,12 +27,30 @@ Analyze the incoming task and produce a JSON pipeline configuration file. You do
 
 ## Profile Selection
 
+Profiles are starting points. You MUST customize the `agents` list based on what the task actually needs.
+
 | Profile | When to use | Agents |
 |---------|-------------|--------|
 | docs-only | Documentation, README, bilingual docs, no code changes | documenter, summarizer |
+| quality-gate | Only run static analysis, fix lint/phpstan/cs errors, no new features | coder, validator, summarizer |
+| tests-only | Write missing tests for existing code, no new features | coder, tester, summarizer |
 | quick-fix | Typos, config, 1-3 files, single app, no migrations | coder, validator, summarizer |
-| standard | Normal feature, multiple files, one app, may need spec | architect, coder, validator, tester, summarizer |
-| complex | Multi-service, migrations, API changes, new agents | architect, coder, auditor, validator, tester, summarizer |
+| standard | Normal feature, multiple files, one app | coder, validator, tester, summarizer |
+| standard+docs | Feature that also needs bilingual documentation | coder, validator, tester, documenter, summarizer |
+| complex | Multi-service, migrations, API changes | coder, validator, tester, summarizer |
+| complex+agent | Complex change that creates/modifies an agent | coder, auditor, validator, tester, summarizer |
+
+## Agent Reference
+
+| Agent | Purpose | When to include |
+|-------|---------|-----------------|
+| architect | Design decisions, create OpenSpec proposals | Only when NO spec/tasks.md exists yet |
+| coder | Write code, migrations, configs | Any task that changes source files |
+| auditor | Audit agent compliance with platform standards | Only when task modifies an agent (apps/*-agent/) |
+| validator | PHPStan, CS-Fixer, static analysis | Any task that changes PHP/Python code |
+| tester | Run tests, write missing tests, fix failures | Any task that changes logic (skip for docs/config-only) |
+| documenter | Write/update bilingual docs (ua/en) | When task explicitly requires documentation |
+| summarizer | Write final summary of what was done | Always include as the last agent |
 
 ## Output
 
@@ -40,11 +58,11 @@ Write `.opencode/pipeline/plan.json` with this structure:
 
 ```json
 {
-  "profile": "quick-fix",
-  "reasoning": "Single config file change, no migrations needed",
-  "agents": ["coder", "validator", "summarizer"],
+  "profile": "standard",
+  "reasoning": "OpenSpec tasks.md ready, single app, needs tests but no architect or docs",
+  "agents": ["coder", "validator", "tester", "summarizer"],
   "skip_openspec": true,
-  "estimated_files": 2,
+  "estimated_files": 8,
   "apps_affected": ["core"],
   "needs_migration": false,
   "needs_api_change": false,
@@ -54,16 +72,27 @@ Write `.opencode/pipeline/plan.json` with this structure:
 }
 ```
 
-**Fields**:
-- `is_agent_task`: set to `true` when the task creates, modifies, or significantly changes an agent (any app in `apps/` with `-agent` suffix, or agent configs in `.opencode/agents/`). This auto-injects an auditor step after the coder.
+## Decision Rules
 
-## Rules
+1. **Always include `summarizer` as the last agent**
+2. **Exclude `architect` when OpenSpec `tasks.md` exists** — coder reads specs directly
+3. **Exclude `auditor` unless the task modifies an agent app** (`apps/*-agent/` or `.opencode/agents/`)
+4. **Exclude `tester` for docs-only, config-only, or quality-gate tasks** — no logic to test
+5. **Exclude `documenter` unless task explicitly mentions documentation**
+6. **Exclude `coder` for docs-only tasks** — documenter handles docs
+7. **Include `validator` for any code change** — even small ones need lint check
+8. **Set `is_agent_task: true`** only when task modifies agent code (apps/*-agent/ or agent configs)
+9. **Be conservative**: if unsure whether to include an agent, include it
+10. **Be efficient**: don't run agents that have nothing to do — each agent costs time and tokens
 
-- Be conservative: if unsure, choose "standard" over "quick-fix"
-- Keep `summarizer` as the final agent unless the task is intentionally single-agent
-- **If an existing OpenSpec proposal has `tasks.md` (spec is ready) — exclude `architect` from agents.** The coder reads the spec directly from `openspec/changes/<id>/`. Architect is only needed when no spec exists yet.
-- If the task says "Implement openspec change ..." — the spec is definitely ready, skip architect.
-- **If the task involves creating or modifying an agent — set `is_agent_task: true`.** The pipeline will auto-inject the auditor after the coder to verify agent compliance with platform standards.
+### Common Patterns
+
+- Task says "Finish change" + remaining tasks are only quality checks → `quality-gate`
+- Task says "Finish change" + remaining tasks are tests → `tests-only`
+- Task says "Implement change" + has tasks.md → `standard` (no architect)
+- Task says "Write docs" or "Update documentation" → `docs-only`
+- Task modifies `apps/*-agent/` → add `auditor` after `coder`
+
 - Do NOT create any other files — only plan.json
 - Do NOT explain outside the JSON file
 - Finish quickly — your timeout is 5 minutes
