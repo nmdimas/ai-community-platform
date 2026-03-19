@@ -1098,51 +1098,98 @@ render_logs_tab() {
   [[ $available_lines -lt 5 ]] && available_lines=5
   local shown=0
 
-  if [[ ${#ACTIVITY_STEPS[@]} -eq 0 && ${#ACTIVITY_LIVE[@]} -eq 0 ]]; then
-    buf_line "  ${DIM}No activity yet. Waiting for pipeline to start...${RESET}"
-    buf_line "  ${DIM}Press [s] to start manually${RESET}"
-  else
-    # ── Completed steps ──
-    local step
-    for step in "${ACTIVITY_STEPS[@]}"; do
-      [[ $shown -ge $available_lines ]] && break
-      IFS='|' read -r s_worker s_agent s_model s_status s_started s_finished s_duration s_in s_out s_cache s_cost <<< "$step"
+  # ── Read events.log (live feed from pipeline.sh) ──
+  local events_shown=false
+  local event_file=""
+  for wt in "$WORKTREE_BASE"/worker-*; do
+    [[ -d "$wt" ]] || continue
+    local ef="$wt/.opencode/pipeline/events.log"
+    [[ -f "$ef" ]] && event_file="$ef"
+  done
 
-      local time_str; time_str=$(format_epoch "$s_started")
-      local dur_str; dur_str=$(format_duration "$s_duration")
+  if [[ -n "$event_file" ]]; then
+    # Show last N events from event log (newest at bottom for timeline feel)
+    local max_events=$((available_lines - ${#ACTIVITY_LIVE[@]} - 2))
+    [[ $max_events -lt 3 ]] && max_events=3
+    local event_lines
+    event_lines=$(tail -"$max_events" "$event_file" 2>/dev/null || true)
 
-      # Status icon
-      local status_icon
-      if [[ "$s_status" == "ok" ]]; then
-        status_icon="${GREEN}✓${RESET}"
-      else
-        status_icon="${RED}✗${RESET}"
-      fi
+    if [[ -n "$event_lines" ]]; then
+      events_shown=true
+      while IFS= read -r eline; do
+        [[ $shown -ge $available_lines ]] && break
+        IFS='|' read -r e_epoch e_time e_type e_details <<< "$eline"
 
-      # Model short name (strip provider prefix)
-      local model_short="${s_model#*/}"
-      # Shorten common model names
-      model_short="${model_short/claude-opus-4-20250514/opus-4}"
-      model_short="${model_short/claude-sonnet-4-20250514/sonnet-4}"
-      model_short="${model_short/codex-mini-latest/codex-mini}"
+        case "$e_type" in
+          TASK_START)
+            local e_task; e_task=$(echo "$e_details" | sed 's/task=//;s/|.*//')
+            local e_worker; e_worker=$(echo "$e_details" | grep -oP 'worker=\K[^|]+' || echo "")
+            buf_line "  ${BLUE}▶${RESET} ${DIM}${e_time}${RESET}  ${BOLD}${WHITE}${e_task}${RESET}  ${DIM}#${e_worker}${RESET}"
+            ;;
+          PLAN)
+            local e_profile; e_profile=$(echo "$e_details" | grep -oP 'profile=\K[^|]+' || echo "?")
+            local e_agents; e_agents=$(echo "$e_details" | grep -oP 'agents=\K.*' || echo "?")
+            buf_line "  ${MAGENTA}◆${RESET} ${DIM}${e_time}${RESET}  ${MAGENTA}plan${RESET}  ${WHITE}${e_profile}${RESET}  ${DIM}${e_agents}${RESET}"
+            ;;
+          AGENT_START)
+            local e_agent; e_agent=$(echo "$e_details" | grep -oP 'agent=\K[^|]+' || echo "?")
+            local e_model; e_model=$(echo "$e_details" | grep -oP 'model=\K.*' || echo "?")
+            e_model="${e_model#*/}"
+            e_model="${e_model/claude-opus-4-20250514/opus-4}"
+            e_model="${e_model/claude-sonnet-4-20250514/sonnet-4}"
+            e_model="${e_model/codex-mini-latest/codex-mini}"
+            buf_line "  ${YELLOW}▸${RESET} ${DIM}${e_time}${RESET}  ${YELLOW}${e_agent}${RESET}  ${DIM}${e_model}${RESET}"
+            ;;
+          AGENT_DONE)
+            local e_agent; e_agent=$(echo "$e_details" | grep -oP 'agent=\K[^|]+' || echo "?")
+            local e_status; e_status=$(echo "$e_details" | grep -oP 'status=\K[^|]+' || echo "?")
+            local e_dur; e_dur=$(echo "$e_details" | grep -oP 'duration=\K[^|]+' || echo "")
+            local e_tok; e_tok=$(echo "$e_details" | grep -oP 'tokens=\K[^|]+' || echo "")
+            local icon="${GREEN}✓${RESET}"
+            [[ "$e_status" != "ok" ]] && icon="${RED}✗${RESET}"
+            local extra=""
+            [[ -n "$e_dur" ]] && extra+="  ${WHITE}${e_dur}${RESET}"
+            [[ -n "$e_tok" ]] && extra+="  ${DIM}${e_tok}${RESET}"
+            buf_line "  ${icon} ${DIM}${e_time}${RESET}  ${CYAN}${e_agent}${RESET}${extra}"
+            ;;
+          *)
+            buf_line "  ${DIM}${e_time}  ${e_type}  ${e_details}${RESET}"
+            ;;
+        esac
+        ((shown++))
+      done <<< "$event_lines"
+    fi
+  fi
 
-      # Token summary
-      local tok_str=""
-      local total_tok=$(( s_in + s_out ))
-      if [[ $total_tok -gt 0 ]]; then
-        tok_str="$(format_tokens "$s_in")→$(format_tokens "$s_out")"
-        [[ "$s_cache" -gt 0 ]] && tok_str+=" ${DIM}(cache: $(format_tokens "$s_cache"))${RESET}"
-      fi
+  if [[ "$events_shown" != true ]]; then
+    # Fallback to meta.json for completed steps
+    if [[ ${#ACTIVITY_STEPS[@]} -eq 0 && ${#ACTIVITY_LIVE[@]} -eq 0 ]]; then
+      buf_line "  ${DIM}No activity yet. Waiting for pipeline to start...${RESET}"
+      buf_line "  ${DIM}Press [s] to start manually${RESET}"
+    else
+      local step
+      for step in "${ACTIVITY_STEPS[@]}"; do
+        [[ $shown -ge $available_lines ]] && break
+        IFS='|' read -r s_worker s_agent s_model s_status s_started s_finished s_duration s_in s_out s_cache s_cost <<< "$step"
+        local time_str; time_str=$(format_epoch "$s_started")
+        local dur_str; dur_str=$(format_duration "$s_duration")
+        local status_icon="${GREEN}✓${RESET}"
+        [[ "$s_status" != "ok" ]] && status_icon="${RED}✗${RESET}"
+        local model_short="${s_model#*/}"
+        model_short="${model_short/claude-opus-4-20250514/opus-4}"
+        model_short="${model_short/claude-sonnet-4-20250514/sonnet-4}"
+        model_short="${model_short/codex-mini-latest/codex-mini}"
+        local tok_str=""
+        local total_tok=$(( s_in + s_out ))
+        [[ $total_tok -gt 0 ]] && tok_str="$(format_tokens "$s_in")→$(format_tokens "$s_out")"
+        buf_line "  ${status_icon} ${DIM}${time_str}${RESET}  ${CYAN}${BOLD}${s_agent}${RESET}  ${DIM}${model_short}${RESET}  ${WHITE}${dur_str}${RESET}  ${DIM}${tok_str}${RESET}"
+        ((shown++))
+      done
+    fi
+  fi
 
-      # Cost
-      local cost_str=""
-      [[ -n "$s_cost" && "$s_cost" != "0" ]] && cost_str="  $(format_cost "$s_cost")"
-
-      buf_line "  ${status_icon} ${DIM}${time_str}${RESET}  ${CYAN}${BOLD}${s_agent}${RESET}  ${DIM}${model_short}${RESET}  ${WHITE}${dur_str}${RESET}  ${DIM}${tok_str}${cost_str}${RESET}"
-      ((shown++))
-    done
-
-    # ── Live (currently running) steps ──
+  # ── Live (currently running) steps ──
+  if [[ ${#ACTIVITY_LIVE[@]} -gt 0 ]]; then
     local live
     for live in "${ACTIVITY_LIVE[@]}"; do
       [[ $shown -ge $available_lines ]] && break

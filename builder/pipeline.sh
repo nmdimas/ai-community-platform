@@ -40,6 +40,17 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
+# ── Event log (live activity feed for monitor) ────────────────────────
+EVENT_LOG="$PIPELINE_DIR/events.log"
+
+emit_event() {
+  local event_type="$1"; shift
+  local details="$*"
+  local ts; ts=$(date '+%H:%M:%S')
+  local epoch; epoch=$(date +%s)
+  echo "${epoch}|${ts}|${event_type}|${details}" >> "$EVENT_LOG" 2>/dev/null || true
+}
+
 # Agent order
 AGENTS=(architect coder validator tester summarizer)
 
@@ -1104,6 +1115,7 @@ apply_plan() {
   reasoning=$(jq -r '.reasoning // ""' "$plan_file")
 
   echo -e "${CYAN}Planner chose profile: ${profile}${NC}"
+  emit_event "PLAN" "profile=${profile}|agents=$(jq -r '.agents // [] | join(" → ")' "$plan_file" 2>/dev/null)"
   if [[ -n "$reasoning" ]]; then
     echo -e "  ${BLUE}Reasoning: ${reasoning}${NC}"
   fi
@@ -1322,6 +1334,8 @@ run_agent() {
     models_to_try="${original_model},${fallback_chain}"
   fi
 
+  emit_event "AGENT_START" "agent=${agent}|model=${original_model}"
+
   echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${BLUE}▶ Agent:   ${YELLOW}${agent}${NC}"
   echo -e "${BLUE}▶ Model:   ${NC}${original_model}"
@@ -1434,6 +1448,9 @@ run_agent() {
       cache_r=$(echo "$tokens_json" | jq -r '.cache_read' 2>/dev/null || echo 0)
       cache_w=$(echo "$tokens_json" | jq -r '.cache_write' 2>/dev/null || echo 0)
 
+      local agent_dur=$(( agent_end_epoch - agent_start_epoch ))
+      emit_event "AGENT_DONE" "agent=${agent}|status=ok|duration=${agent_dur}s|tokens=${in_tok}/${out_tok}|cache=${cache_r}"
+
       echo ""
       echo -e "${GREEN}✓ Agent '${agent}' completed successfully${NC}"
       echo -e "  ${BLUE}Tokens: ${in_tok} in / ${out_tok} out | Cache: ${cache_r} read / ${cache_w} write${NC}"
@@ -1445,10 +1462,12 @@ run_agent() {
       fi
       return 0
     elif [[ $exit_code -eq 124 ]]; then
+      emit_event "AGENT_DONE" "agent=${agent}|status=timeout|duration=${timeout_min}m"
       echo -e "${RED}✗ Agent '${agent}' timed out after ${timeout_min} min${NC}"
       restore_agent_model "$agent" "$original_model"
       return 1
     else
+      emit_event "AGENT_DONE" "agent=${agent}|status=fail|exit=${exit_code}"
       echo -e "${RED}✗ Agent '${agent}' failed (exit code: ${exit_code})${NC}"
 
       # Check if it's a rate limit error — try fallback model

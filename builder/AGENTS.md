@@ -14,16 +14,31 @@ Task → Planner → Architect → Coder → Validator → Tester → Documenter
 
 ### Агенти за ролями
 
-| Агент | Роль | Головна модель | Fallback |
-|-------|------|----------------|----------|
-| **planner** | Аналізує задачу, обирає profile (quick-fix/standard/complex) | claude-sonnet-4 | gemini-2.0-flash-exp → free → cheap |
-| **architect** | Створює OpenSpec proposal (specs, design, tasks) | claude-sonnet-4 | gemini-2.0-flash-exp → free → cheap |
-| **coder** | Пише код на основі specs | claude-opus-4 | gemini-2.0-flash-thinking → free → cheap |
-| **validator** | Запускає PHPStan, CS-Fixer, виправляє помилки | claude-sonnet-4 | deepseek-chat:free → free → cheap |
-| **tester** | Запускає тести, пише нові, виправляє failures | claude-sonnet-4 | deepseek-chat:free → free → cheap |
-| **documenter** | Пише білінгвальну документацію (UA+EN) | claude-opus-4 | gemini-2.0-flash-exp → free → cheap |
-| **auditor** | Quality gate - перевіряє якість agent-related змін | claude-sonnet-4 | gemini-2.0-flash-exp → free → cheap |
-| **summarizer** | Створює фінальний звіт про виконану роботу | claude-sonnet-4 | gemini-2.0-flash-exp → free → cheap |
+| Агент | Роль | Вендор | Модель |
+|-------|------|--------|--------|
+| **planner** | Аналізує задачу, обирає profile та список агентів | Anthropic | claude-opus-4 |
+| **architect** | Створює OpenSpec proposal (specs, design, tasks) | Anthropic | claude-opus-4 |
+| **coder** | Пише код на основі specs | Anthropic | claude-sonnet-4 |
+| **auditor** | Quality gate — перевіряє якість agent-related змін | Anthropic | claude-sonnet-4 |
+| **validator** | Запускає PHPStan, CS-Fixer, виправляє помилки | OpenAI | codex-mini |
+| **tester** | Запускає тести, пише нові, виправляє failures | Anthropic | claude-sonnet-4 |
+| **documenter** | Пише білінгвальну документацію (UA+EN) | OpenAI | gpt-5.4 |
+| **summarizer** | Створює фінальний звіт про виконану роботу | OpenAI | gpt-5.4 |
+
+### Profiles (обирає planner)
+
+| Profile | Коли використовується | Агенти |
+|---------|----------------------|--------|
+| **docs-only** | Тільки документація, README | documenter → summarizer |
+| **quality-gate** | PHPStan/CS-Fixer/тести, без нового коду | coder → validator → summarizer |
+| **tests-only** | Написати тести для існуючого коду | coder → tester → summarizer |
+| **quick-fix** | Дрібні правки, 1-3 файли | coder → validator → summarizer |
+| **standard** | Звичайна фіча, один app | coder → validator → tester → summarizer |
+| **standard+docs** | Фіча + документація | coder → validator → tester → documenter → summarizer |
+| **complex** | Multi-service, міграції, API зміни | coder → validator → tester → summarizer |
+| **complex+agent** | Зміни що торкаються агентів | coder → auditor → validator → tester → summarizer |
+
+> **Примітка:** Planner може створити довільний список агентів через `agents` поле в plan.json. Profiles — це лише стартові шаблони.
 
 ## Структура файлів агента
 

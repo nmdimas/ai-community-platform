@@ -876,6 +876,10 @@ run_parallel() {
     read -r worker_id <&3
 
     echo -e "${BLUE}[${worker_id}] Task ${task_num}/${TOTAL}:${NC} ${task}"
+    # Emit event to worktree event log
+    local _evt_log="$WORKTREE_BASE/${worker_id}/.opencode/pipeline/events.log"
+    mkdir -p "$(dirname "$_evt_log")" 2>/dev/null || true
+    echo "$(date +%s)|$(date '+%H:%M:%S')|TASK_START|task=${task}|worker=${worker_id}|num=${task_num}/${TOTAL}" >> "$_evt_log" 2>/dev/null || true
 
     (
       local wt="$WORKTREE_BASE/${worker_id}"
