@@ -1150,26 +1150,17 @@ apply_plan() {
 auto_inject_auditor() {
   local plan_file="$1"
 
-  # Check if planner flagged this as an agent task
+  # Trust planner's decision — it uses Opus and analyzes the task in detail
   local is_agent_task="false"
   if [[ -f "$plan_file" ]]; then
     is_agent_task=$(jq -r '.is_agent_task // false' "$plan_file" 2>/dev/null || echo "false")
   fi
 
-  # Fallback: detect agent-related keywords in task message
-  if [[ "$is_agent_task" != "true" ]]; then
+  # Fallback only when plan.json is missing: check apps_affected for -agent dirs
+  if [[ "$is_agent_task" != "true" && ! -f "$plan_file" ]]; then
     local task_lower
     task_lower=$(echo "$TASK_MESSAGE" | tr '[:upper:]' '[:lower:]')
-    if echo "$task_lower" | grep -qE '(agent|агент|-agent\b|new agent|add agent|create agent|modify agent|update agent|refactor agent)'; then
-      is_agent_task="true"
-    fi
-  fi
-
-  # Fallback: check apps_affected for agent directories
-  if [[ "$is_agent_task" != "true" && -f "$plan_file" ]]; then
-    local affected
-    affected=$(jq -r '.apps_affected // [] | .[]' "$plan_file" 2>/dev/null)
-    if echo "$affected" | grep -qE '(-agent$|^agent-)'; then
+    if echo "$task_lower" | grep -qE '(new agent|create agent|add .+-agent)'; then
       is_agent_task="true"
     fi
   fi
