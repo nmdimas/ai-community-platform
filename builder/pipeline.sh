@@ -548,6 +548,9 @@ commit_agent_work() {
   fi
 
   git -C "$REPO_ROOT" add -A
+  # Force-add summary even if gitignored (worktree may have stale .gitignore)
+  git -C "$REPO_ROOT" add -f builder/tasks/summary/*.md 2>/dev/null || true
+  git -C "$REPO_ROOT" add -f builder/tasks/done/*.md 2>/dev/null || true
   local commit_msg="[pipeline:${agent}] ${task_slug}"
 
   if git -C "$REPO_ROOT" commit -m "$commit_msg" --no-verify 2>/dev/null; then
