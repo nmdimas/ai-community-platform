@@ -4,7 +4,7 @@
 # Interactive pipeline monitor with tab-based TUI.
 # Version: 0.15.2
 #
-MONITOR_VERSION="0.15.1"
+MONITOR_VERSION="0.16.0"
 # Usage:
 #   ./builder/monitor/pipeline-monitor.sh              # auto-detect tasks/ folder
 #   ./builder/monitor/pipeline-monitor.sh tasks/       # monitor specific tasks folder
@@ -936,147 +936,133 @@ format_duration() {
 }
 
 format_epoch() {
-  # macOS date -r <epoch>, Linux date -d @<epoch>
-  if date -r 0 '+%H:%M:%S' &>/dev/null 2>&1; then
+  if date -d "@0" '+%H:%M:%S' &>/dev/null 2>&1; then
+    date -d "@$1" '+%H:%M:%S' 2>/dev/null || echo "??:??:??"
+  elif date -r 0 '+%H:%M:%S' &>/dev/null 2>&1; then
     date -r "$1" '+%H:%M:%S' 2>/dev/null || echo "??:??:??"
   else
-    date -d "@$1" '+%H:%M:%S' 2>/dev/null || echo "??:??:??"
+    echo "??:??:??"
   fi
 }
 
-build_activity_events() {
-  ACTIVITY_EVENTS=()
-
-  # 1) Agent START + FINISH events from .meta.json files
-  local meta_files=()
-  if [[ -d "$LOG_DIR" ]]; then
-    while IFS= read -r f; do
-      [[ -n "$f" ]] && meta_files+=("$f")
-    done < <(ls -t "$LOG_DIR"/*.meta.json 2>/dev/null)
+format_tokens() {
+  local n="$1"
+  if [[ $n -ge 1000000 ]]; then
+    printf '%.1fM' "$(echo "$n" | awk '{printf "%.1f", $1/1000000}')"
+  elif [[ $n -ge 1000 ]]; then
+    printf '%.1fk' "$(echo "$n" | awk '{printf "%.1f", $1/1000}')"
+  else
+    printf '%d' "$n"
   fi
-  # Also check worktree log dirs
-  local wt _wi
-  for ((_wi=0; _wi<ACTIVE_WORKER_COUNT; _wi++)); do
-    wt="${DETECTED_WORKERS[$_wi]}"
-    local wt_log="$WORKTREE_BASE/$wt/.opencode/pipeline/logs"
-    if [[ -d "$wt_log" ]]; then
-      while IFS= read -r f; do
-        [[ -n "$f" ]] && meta_files+=("$f")
-      done < <(ls -t "$wt_log"/*.meta.json 2>/dev/null)
+}
+
+format_cost() {
+  local cost="$1"
+  if [[ "$cost" == "0" || -z "$cost" ]]; then
+    echo "\$0"
+  else
+    echo "\$$(echo "$cost" | awk '{printf "%.2f", $1}')"
+  fi
+}
+
+# Detect which agent is currently running by checking opencode processes
+detect_live_agent() {
+  local worker_dir="$1"
+  local wt_log="$worker_dir/.opencode/pipeline/logs"
+  [[ -d "$wt_log" ]] || return
+
+  # Find the newest .log file without a matching .meta.json (= still running)
+  local log_file
+  for log_file in $(ls -t "$wt_log"/*.log 2>/dev/null); do
+    local base="${log_file%.log}"
+    if [[ ! -f "${base}.meta.json" ]]; then
+      # Extract agent name from filename: TIMESTAMP_agent.log
+      local fname; fname=$(basename "$log_file" .log)
+      local agent_name="${fname##*_}"
+      local log_size
+      log_size=$(wc -c < "$log_file" 2>/dev/null | tr -d ' ')
+      local started_epoch
+      started_epoch=$(stat -c '%Y' "$log_file" 2>/dev/null || stat -f '%m' "$log_file" 2>/dev/null || echo "0")
+      echo "${agent_name}|${started_epoch}|${log_size}"
+      return
     fi
   done
+}
 
-  # Parse all meta files with a single awk per file (replaces 7x sed + 7x head)
-  [[ ${#meta_files[@]} -eq 0 ]] && return
-  local f agent started finished duration exit_code task_name worker_id
-  for f in ${meta_files[@]+"${meta_files[@]}"}; do
-    local parsed
-    parsed=$(awk '
-      /"agent"/           { gsub(/.*"agent"[[:space:]]*:[[:space:]]*"/, ""); gsub(/".*/, ""); agent=$0 }
-      /"started_epoch"/   { gsub(/.*"started_epoch"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); started=$0 }
-      /"finished_epoch"/  { gsub(/.*"finished_epoch"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); finished=$0 }
-      /"duration_seconds"/{ gsub(/.*"duration_seconds"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); duration=$0 }
-      /"exit_code"/       { gsub(/.*"exit_code"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); exitc=$0 }
-      /"task"/            { gsub(/.*"task"[[:space:]]*:[[:space:]]*"/, ""); gsub(/".*/, ""); task=$0 }
-      /"worker"/          { gsub(/.*"worker"[[:space:]]*:[[:space:]]*"/, ""); gsub(/".*/, ""); worker=$0 }
-      END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%s", agent, started, finished, duration, exitc, task, worker }
-    ' "$f" 2>/dev/null) || continue
-    IFS=$'\t' read -r agent started finished duration exit_code task_name worker_id <<< "$parsed"
-    [[ -z "$agent" || -z "$started" ]] && continue
+# Build activity data: completed steps + live step per worker
+# Only shows meta from worktree log dirs (current/recent batch), not old main logs
+build_activity_data() {
+  ACTIVITY_STEPS=()       # "worker|agent|model|status|started|finished|duration|in_tok|out_tok|cache_r|cost"
+  ACTIVITY_LIVE=()        # "worker|agent|started|log_bytes" (currently running)
+  ACTIVITY_TASK_TITLE=""
+  ACTIVITY_TASK_STARTED=0
+  ACTIVITY_TOTAL_COST="0"
+  ACTIVITY_TOTAL_IN=0
+  ACTIVITY_TOTAL_OUT=0
 
-    # Truncate task name
-    [[ ${#task_name} -gt 35 ]] && task_name="${task_name:0:32}..."
-
-    local worker_tag="${worker_id:-main}"
-
-    # START event
-    local start_time; start_time=$(format_epoch "$started")
-    ACTIVITY_EVENTS+=("${started}|START|${start_time}|${agent}|${task_name}|${worker_tag}")
-
-    # FINISH event (if completed)
-    if [[ -n "$finished" && "$finished" -gt 0 ]]; then
-      local end_time; end_time=$(format_epoch "$finished")
-      local dur_str=""; [[ -n "$duration" && "$duration" -gt 0 ]] && dur_str=$(format_duration "$duration")
-      local status_raw="ok"
-      [[ "${exit_code:-0}" -ne 0 ]] && status_raw="fail"
-      ACTIVITY_EVENTS+=("${finished}|FINISH|${end_time}|${agent}|${task_name}|${worker_tag}|${dur_str}|${status_raw}")
-    fi
+  # Get current task title from in-progress
+  local ip_file
+  for ip_file in "$TASK_SOURCE/in-progress"/*.md; do
+    [[ -f "$ip_file" ]] || continue
+    # Extract title from first # heading
+    ACTIVITY_TASK_TITLE=$(grep -m1 '^# ' "$ip_file" 2>/dev/null | sed 's/^# //')
+    break
   done
 
-  # 2) Task state transitions from task files
-  local state state_dir
-  for state in done failed in-progress; do
-    state_dir="$TASK_SOURCE/$state"
-    [[ -d "$state_dir" ]] || continue
-    local tf
-    for tf in "$state_dir"/*.md; do
-      [[ -f "$tf" ]] || continue
-      local title; title=$(basename "$tf" .md | tr '-' ' ')
-      local batch_line; batch_line=$(head -1 "$tf")
-      local batch_ts="" task_dur="" task_branch=""
-      if [[ "$batch_line" =~ batch:\ ([0-9_]+) ]]; then
-        batch_ts="${BASH_REMATCH[1]}"
-      fi
-      if [[ "$batch_line" =~ duration:\ ([0-9]+)s ]]; then
-        task_dur="${BASH_REMATCH[1]}"
-      fi
-      if [[ "$batch_line" =~ branch:\ ([^\ ]+) ]]; then
-        task_branch="${BASH_REMATCH[1]}"
-        task_branch="${task_branch%% -->}"
-        task_branch=$(basename "$task_branch")
-      fi
+  # Scan each worktree for meta.json files
+  local worker_dir worker_name
+  for worker_dir in "$WORKTREE_BASE"/worker-*; do
+    [[ -d "$worker_dir" ]] || continue
+    worker_name=$(basename "$worker_dir")
+    local wt_log="$worker_dir/.opencode/pipeline/logs"
+    [[ -d "$wt_log" ]] || continue
 
-      local sort_key
-      if [[ -n "$batch_ts" ]]; then
-        sort_key=$(echo "$batch_ts" | tr -d '_')
-      else
-        sort_key=$(stat -f '%m' "$tf" 2>/dev/null || stat -c '%Y' "$tf" 2>/dev/null || echo "0")
-      fi
+    # Parse completed agent steps (meta.json = agent finished)
+    local meta_file
+    for meta_file in $(ls -t "$wt_log"/*.meta.json 2>/dev/null); do
+      local parsed
+      parsed=$(awk '
+        /"agent"/           { gsub(/.*"agent"[[:space:]]*:[[:space:]]*"/, ""); gsub(/".*/, ""); a=$0 }
+        /"model"/           { gsub(/.*"model"[[:space:]]*:[[:space:]]*"/, ""); gsub(/".*/, ""); m=$0 }
+        /"started_epoch"/   { gsub(/.*"started_epoch"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); s=$0 }
+        /"finished_epoch"/  { gsub(/.*"finished_epoch"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); f=$0 }
+        /"duration_seconds"/{ gsub(/.*"duration_seconds"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); d=$0 }
+        /"exit_code"/       { gsub(/.*"exit_code"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); e=$0 }
+        /"input_tokens"/    { gsub(/.*"input_tokens"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); it=$0 }
+        /"output_tokens"/   { gsub(/.*"output_tokens"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); ot=$0 }
+        /"cache_read"/      { gsub(/.*"cache_read"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9].*/, ""); cr=$0 }
+        /"cost"/            { gsub(/.*"cost"[[:space:]]*:[[:space:]]*/, ""); gsub(/[^0-9.].*/, ""); c=$0 }
+        END { printf "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s", a, m, s, f, d, e, it, ot, cr, c }
+      ' "$meta_file" 2>/dev/null) || continue
+      local agent model started finished duration exit_code in_tok out_tok cache_r cost
+      IFS=$'\t' read -r agent model started finished duration exit_code in_tok out_tok cache_r cost <<< "$parsed"
+      [[ -z "$agent" || -z "$started" ]] && continue
 
-      local time_str=""
-      if [[ -n "$batch_ts" ]]; then
-        local hh mm ss
-        hh="${batch_ts:9:2}"; mm="${batch_ts:11:2}"; ss="${batch_ts:13:2}"
-        time_str="${hh}:${mm}:${ss}"
-      else
-        time_str=$(stat -f '%Sm' -t '%H:%M:%S' "$tf" 2>/dev/null || date -r "$tf" '+%H:%M:%S' 2>/dev/null || echo "??:??:??")
-      fi
+      local status="ok"
+      [[ "${exit_code:-0}" -ne 0 ]] && status="fail"
 
-      local dur_str=""
-      [[ -n "$task_dur" && "$task_dur" -gt 0 ]] && dur_str=$(format_duration "$task_dur")
-      [[ ${#title} -gt 35 ]] && title="${title:0:32}..."
+      # Track earliest start as task start
+      [[ "$started" -gt 0 && ( "$ACTIVITY_TASK_STARTED" -eq 0 || "$started" -lt "$ACTIVITY_TASK_STARTED" ) ]] && ACTIVITY_TASK_STARTED="$started"
 
-      # Compute finish sort_key = batch_ts + duration for done/failed
-      local finish_sort_key="$sort_key"
-      if [[ -n "$batch_ts" && -n "$task_dur" ]]; then
-        # Approximate: add duration to batch timestamp for proper ordering
-        local batch_hh="${batch_ts:9:2}" batch_mm="${batch_ts:11:2}" batch_ss="${batch_ts:13:2}"
-        local batch_secs=$(( 10#$batch_hh * 3600 + 10#$batch_mm * 60 + 10#$batch_ss + task_dur ))
-        local fin_hh=$(( batch_secs / 3600 )) fin_mm=$(( (batch_secs % 3600) / 60 )) fin_ss=$(( batch_secs % 60 ))
-        finish_sort_key="${batch_ts:0:8}$(printf '%02d%02d%02d' $fin_hh $fin_mm $fin_ss)"
-      fi
+      ACTIVITY_STEPS+=("${worker_name}|${agent}|${model}|${status}|${started}|${finished}|${duration:-0}|${in_tok:-0}|${out_tok:-0}|${cache_r:-0}|${cost:-0}")
 
-      # Task picked up event (batch start time)
-      ACTIVITY_EVENTS+=("${sort_key}|TSTART|${time_str}|${title}|${task_branch}")
-
-      # Task finished event
-      if [[ "$state" == "done" || "$state" == "failed" ]]; then
-        local fin_time=""
-        if [[ -n "$batch_ts" && -n "$task_dur" ]]; then
-          local batch_hh="${batch_ts:9:2}" batch_mm="${batch_ts:11:2}" batch_ss="${batch_ts:13:2}"
-          local total_secs=$(( 10#$batch_hh * 3600 + 10#$batch_mm * 60 + 10#$batch_ss + task_dur ))
-          fin_time=$(printf '%02d:%02d:%02d' $((total_secs / 3600)) $(((total_secs % 3600) / 60)) $((total_secs % 60)))
-        else
-          fin_time="$time_str"
-        fi
-        ACTIVITY_EVENTS+=("${finish_sort_key}|TFINISH|${fin_time}|${title}|${dur_str}|${state}")
-      fi
+      # Accumulate totals
+      ACTIVITY_TOTAL_IN=$(( ACTIVITY_TOTAL_IN + ${in_tok:-0} ))
+      ACTIVITY_TOTAL_OUT=$(( ACTIVITY_TOTAL_OUT + ${out_tok:-0} ))
+      ACTIVITY_TOTAL_COST=$(echo "$ACTIVITY_TOTAL_COST ${cost:-0}" | awk '{printf "%.4f", $1 + $2}')
     done
+
+    # Detect live (currently running) agent
+    local live_info
+    live_info=$(detect_live_agent "$worker_dir")
+    if [[ -n "$live_info" ]]; then
+      ACTIVITY_LIVE+=("${worker_name}|${live_info}")
+    fi
   done
 
-  # 3) Sort events by timestamp descending (newest first)
-  if [[ ${#ACTIVITY_EVENTS[@]} -gt 0 ]]; then
-    IFS=$'\n' ACTIVITY_EVENTS=($(printf '%s\n' "${ACTIVITY_EVENTS[@]}" | sort -t'|' -k1 -rn)); unset IFS
+  # Sort completed steps by started epoch ascending (oldest first = pipeline order)
+  if [[ ${#ACTIVITY_STEPS[@]} -gt 0 ]]; then
+    IFS=$'\n' ACTIVITY_STEPS=($(printf '%s\n' "${ACTIVITY_STEPS[@]}" | sort -t'|' -k5 -n)); unset IFS
   fi
 }
 
@@ -1089,62 +1075,98 @@ render_logs_tab() {
   query_openrouter_balance
   build_provider_line
   buf_line "$(render_tabs_str)  ${DIM}v${MONITOR_VERSION}  $(date '+%H:%M:%S')${RESET}"
-  buf_line "  ${BOLD}Activity Log${RESET}"
 
-  build_activity_events
+  build_activity_data
 
-  local available_lines=$((TERM_ROWS - 4))
-  [[ $available_lines -lt 5 ]] && available_lines=5
-
-  if [[ ${#ACTIVITY_EVENTS[@]} -eq 0 ]]; then
-    buf_line "  ${DIM}No activity recorded yet${RESET}"
-    buf_line "  ${DIM}Start a batch with [s] to see events here${RESET}"
+  # ── Header: current task ──
+  if [[ -n "$ACTIVITY_TASK_TITLE" ]]; then
+    buf_line "  ${BOLD}${WHITE}${ACTIVITY_TASK_TITLE}${RESET}"
   else
-    local shown=0 event
-    for event in "${ACTIVITY_EVENTS[@]}"; do
-      [[ $shown -ge $available_lines ]] && break
-      local -a _p=()
-      IFS='|' read -ra _p <<< "$event"
-      local sort_key="${_p[0]:-}" etype="${_p[1]:-}" etime="${_p[2]:-}"
+    buf_line "  ${BOLD}Pipeline Activity${RESET}"
+  fi
 
-      case "$etype" in
-        START)
-          local agent="${_p[3]:-}" task="${_p[4]:-}" worker="${_p[5]:-}"
-          local task_part=""; [[ -n "$task" ]] && task_part="  ${WHITE}${task}${RESET}"
-          local worker_part=""; [[ -n "$worker" && "$worker" != "main" ]] && worker_part="  ${DIM}#${worker}${RESET}"
-          buf_line "  ${DIM}${etime}${RESET}  ${YELLOW}START${RESET}  ${CYAN}${agent}${RESET}${task_part}${worker_part}"
-          ;;
-        FINISH)
-          local agent="${_p[3]:-}" task="${_p[4]:-}" worker="${_p[5]:-}" dur="${_p[6]:-}" status_raw="${_p[7]:-}"
-          local status_fmt=""
-          case "$status_raw" in
-            ok)   status_fmt="${GREEN}OK${RESET}" ;;
-            fail) status_fmt="${RED}FAIL${RESET}" ;;
-          esac
-          local dur_part=""; [[ -n "$dur" ]] && dur_part="  ${DIM}${dur}${RESET}"
-          local task_part=""; [[ -n "$task" ]] && task_part="  ${WHITE}${task}${RESET}"
-          local worker_part=""; [[ -n "$worker" && "$worker" != "main" ]] && worker_part="  ${DIM}#${worker}${RESET}"
-          buf_line "  ${DIM}${etime}${RESET}  ${status_fmt}  ${CYAN}${agent}${RESET}${dur_part}${task_part}${worker_part}"
-          ;;
-        TSTART)
-          local title="${_p[3]:-}" branch="${_p[4]:-}"
-          local branch_part=""; [[ -n "$branch" ]] && branch_part="  ${DIM}${branch}${RESET}"
-          buf_line "  ${DIM}${etime}${RESET}  ${BLUE}TASK${RESET}  ${WHITE}${title}${RESET}${branch_part}"
-          ;;
-        TFINISH)
-          local title="${_p[3]:-}" dur="${_p[4]:-}" state="${_p[5]:-}"
-          local state_fmt=""
-          case "$state" in
-            done)   state_fmt="${GREEN}DONE${RESET}" ;;
-            failed) state_fmt="${RED}FAIL${RESET}" ;;
-          esac
-          local dur_part=""; [[ -n "$dur" ]] && dur_part="  ${DIM}${dur}${RESET}"
-          buf_line "  ${DIM}${etime}${RESET}  ${state_fmt}  ${WHITE}${title}${RESET}${dur_part}"
-          ;;
-      esac
+  local now; now=$(date +%s)
+
+  # ── Elapsed time ──
+  if [[ "$ACTIVITY_TASK_STARTED" -gt 0 ]]; then
+    local elapsed=$(( now - ACTIVITY_TASK_STARTED ))
+    buf_line "  ${DIM}Elapsed: $(format_duration "$elapsed")  |  Tokens: $(format_tokens "$ACTIVITY_TOTAL_IN") in / $(format_tokens "$ACTIVITY_TOTAL_OUT") out  |  Cost: $(format_cost "$ACTIVITY_TOTAL_COST")${RESET}"
+  fi
+  buf_line ""
+
+  local available_lines=$((TERM_ROWS - 8))
+  [[ $available_lines -lt 5 ]] && available_lines=5
+  local shown=0
+
+  if [[ ${#ACTIVITY_STEPS[@]} -eq 0 && ${#ACTIVITY_LIVE[@]} -eq 0 ]]; then
+    buf_line "  ${DIM}No activity yet. Waiting for pipeline to start...${RESET}"
+    buf_line "  ${DIM}Press [s] to start manually${RESET}"
+  else
+    # ── Completed steps ──
+    local step
+    for step in "${ACTIVITY_STEPS[@]}"; do
+      [[ $shown -ge $available_lines ]] && break
+      IFS='|' read -r s_worker s_agent s_model s_status s_started s_finished s_duration s_in s_out s_cache s_cost <<< "$step"
+
+      local time_str; time_str=$(format_epoch "$s_started")
+      local dur_str; dur_str=$(format_duration "$s_duration")
+
+      # Status icon
+      local status_icon
+      if [[ "$s_status" == "ok" ]]; then
+        status_icon="${GREEN}✓${RESET}"
+      else
+        status_icon="${RED}✗${RESET}"
+      fi
+
+      # Model short name (strip provider prefix)
+      local model_short="${s_model#*/}"
+      # Shorten common model names
+      model_short="${model_short/claude-opus-4-20250514/opus-4}"
+      model_short="${model_short/claude-sonnet-4-20250514/sonnet-4}"
+      model_short="${model_short/codex-mini-latest/codex-mini}"
+
+      # Token summary
+      local tok_str=""
+      local total_tok=$(( s_in + s_out ))
+      if [[ $total_tok -gt 0 ]]; then
+        tok_str="$(format_tokens "$s_in")→$(format_tokens "$s_out")"
+        [[ "$s_cache" -gt 0 ]] && tok_str+=" ${DIM}(cache: $(format_tokens "$s_cache"))${RESET}"
+      fi
+
+      # Cost
+      local cost_str=""
+      [[ -n "$s_cost" && "$s_cost" != "0" ]] && cost_str="  $(format_cost "$s_cost")"
+
+      buf_line "  ${status_icon} ${DIM}${time_str}${RESET}  ${CYAN}${BOLD}${s_agent}${RESET}  ${DIM}${model_short}${RESET}  ${WHITE}${dur_str}${RESET}  ${DIM}${tok_str}${cost_str}${RESET}"
+      ((shown++))
+    done
+
+    # ── Live (currently running) steps ──
+    local live
+    for live in "${ACTIVITY_LIVE[@]}"; do
+      [[ $shown -ge $available_lines ]] && break
+      IFS='|' read -r l_worker l_agent l_started l_bytes <<< "$live"
+
+      local elapsed=$(( now - l_started ))
+      local elapsed_str; elapsed_str=$(format_duration "$elapsed")
+      local bytes_kb=$(( l_bytes / 1024 ))
+
+      # Animated spinner
+      local spin_chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+      local spin_idx=$(( (now % 10) ))
+      local spinner="${spin_chars:$spin_idx:1}"
+
+      buf_line "  ${YELLOW}${spinner}${RESET} ${DIM}$(format_epoch "$l_started")${RESET}  ${YELLOW}${BOLD}${l_agent}${RESET}  ${YELLOW}running ${elapsed_str}${RESET}  ${DIM}${bytes_kb}KB log${RESET}  ${DIM}#${l_worker}${RESET}"
       ((shown++))
     done
   fi
+
+  # Fill remaining lines
+  while [[ $shown -lt $((available_lines - 2)) ]]; do
+    buf_line ""
+    ((shown++))
+  done
 
   render_cost_bar
   buf_line "  ${DIM}←/→ tabs  [s] start  [k] kill  [q] quit  (auto-refresh ${REFRESH_INTERVAL}s)${RESET}"

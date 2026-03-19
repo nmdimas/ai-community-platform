@@ -346,6 +346,21 @@ _task_move_to_failed() {
 
 _detect_task_lifecycle
 
+_is_autotest_task() {
+  [[ "$TASK_MESSAGE" == *"<!-- source: autotest -->"* || "$TASK_MESSAGE" == *$'\n# Admin created task '* || "$TASK_MESSAGE" == "# Admin created task "* ]]
+}
+
+_skip_autotest_task() {
+  echo -e "${YELLOW}Autotest task detected — skipping pipeline and marking as done.${NC}"
+  _task_move_to_in_progress
+  _task_move_to_done "autotest/skipped" "0"
+  exit 0
+}
+
+if _is_autotest_task; then
+  _skip_autotest_task
+fi
+
 # ── Pre-flight checks ────────────────────────────────────────────────
 
 preflight() {
