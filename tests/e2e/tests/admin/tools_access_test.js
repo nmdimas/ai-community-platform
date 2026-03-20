@@ -82,6 +82,50 @@ Scenario(
 ).tag('@admin').tag('@tools').tag('@security');
 
 Scenario(
+    'edge login on openclaw subdomain renders OpenClaw UI after auth',
+    async () => {
+        const password = process.env.ADMIN_PASSWORD || 'test-password';
+        const cookieName = process.env.EDGE_AUTH_COOKIE_NAME || 'ACP_EDGE_TOKEN';
+
+        // Step 1: Hit openclaw — should 302 to edge login on same subdomain
+        const redirectResult = execSync(
+            `curl -s -o /dev/null -w "%{redirect_url}" --max-time 5 "${OPENCLAW_URL}/"`,
+            { encoding: 'utf-8' },
+        ).trim();
+        assert.ok(
+            redirectResult.includes('openclaw.localhost/edge/auth/login'),
+            `Expected redirect to openclaw.localhost/edge/auth/login, got: ${redirectResult}`,
+        );
+        assert.ok(
+            redirectResult.includes('rd='),
+            `Expected rd= param in redirect URL, got: ${redirectResult}`,
+        );
+
+        // Step 2: Login via subdomain login page — follow redirect, capture response
+        const loginResult = execSync(
+            `curl -s -c - -L --max-time 10 -d '_username=admin&_password=${password}' '${redirectResult}'`,
+            { encoding: 'utf-8' },
+        );
+        assert.ok(loginResult.includes(cookieName), `Expected ${cookieName} cookie after login`);
+        assert.ok(
+            loginResult.includes('<openclaw-app>') || loginResult.includes('OpenClaw'),
+            'Expected OpenClaw UI to render after login',
+        );
+
+        // Step 3: Use cookie to access openclaw — should get 200
+        const jwtLine = loginResult.split('\n').find(l => l.includes(cookieName));
+        if (jwtLine) {
+            const jwtValue = jwtLine.split('\t').pop().trim();
+            const statusCode = execSync(
+                `curl -s -o /dev/null -w "%{http_code}" --max-time 5 -b "${cookieName}=${jwtValue}" "${OPENCLAW_URL}/"`,
+                { encoding: 'utf-8' },
+            ).trim();
+            assert.strictEqual(statusCode, '200', `Expected 200 after auth, got ${statusCode}`);
+        }
+    },
+).tag('@admin').tag('@tools').tag('@security');
+
+Scenario(
     'openclaw messenger endpoint is accessible without edge-login redirect',
     async () => {
         const result = execSync(
