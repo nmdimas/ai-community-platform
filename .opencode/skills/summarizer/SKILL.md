@@ -46,6 +46,11 @@ Write in **Ukrainian**. File: `builder/tasks/summary/<timestamp>-<slug>.md`
 ## Незавершене
 - Що лишилось зробити (якщо є)
 
+## Рекомендації по оптимізації
+> Ця секція ОБОВ'ЯЗКОВА якщо виконується будь-яка з умов нижче. Інакше — не додавати.
+
+(див. Anomaly Detection Rules нижче)
+
 ## Наступна задача
 Одна конкретна пропозиція що робити далі.
 ```
@@ -95,13 +100,57 @@ Required section order:
 7. `## Files Read By Agent`
 8. `## Труднощі`
 9. `## Незавершене`
-10. `## Наступна задача`
+10. `## Рекомендації по оптимізації` (**only if anomaly detected** — see rules below)
+11. `## Наступна задача`
 
 For the telemetry sections, prefer pasting the helper output verbatim and only adjust surrounding narrative text.
 
 ## Model Tracking
 
 Agents may use fallback models when primary hits rate limits. The `model` field in checkpoint.json and meta.json shows the **actual model that completed the work**, not the configured primary. Always report the actual model in the summary table — this is critical for cost tracking and debugging.
+
+## Anomaly Detection & Optimization Recommendations
+
+The `## Рекомендації по оптимізації` section is **MANDATORY** when ANY of these anomalies is detected:
+
+### Triggers (check each one)
+
+| Anomaly | Threshold | What to recommend |
+|---------|-----------|-------------------|
+| **Agent failed** | Any agent status = failed/error/timeout | Root cause + how to prevent (model choice? prompt? infra?) |
+| **Pipeline incomplete** | Status = FAIL or any phase pending/interrupted | Which phase broke the chain + what to fix in workflow |
+| **Token anomaly** | Any single agent > 500K input tokens | Why so many reads? Suggest scoping, caching, or splitting task |
+| **Total cost anomaly** | Pipeline total > $2.00 | Which agent burned most + suggest cheaper model or narrower scope |
+| **Duration anomaly** | Any single agent > 15 minutes | What took so long? PHPStan? Tests? Network? Suggest fast model or timeout |
+| **Retry storm** | Same agent retried 3+ times | What keeps failing? Suggest prompt fix, model change, or task split |
+| **Fallback cascade** | Agent fell through to 3+ fallback models | Primary + fallbacks unavailable — suggest adding providers or checking API keys |
+| **Empty output** | Agent ran but produced 0 file changes | Did agent misunderstand the task? Suggest clearer delegation prompt |
+
+### Recommendation Format
+
+```markdown
+## Рекомендації по оптимізації
+
+### 🔴 [Anomaly type]: [brief description]
+**Що сталось:** [what went wrong]
+**Вплив:** [impact on pipeline — time/cost/quality]
+**Рекомендація:** [concrete fix]
+- Варіант A: [specific action]
+- Варіант B: [alternative]
+
+### 🟡 [Another anomaly if any]
+...
+```
+
+Use 🔴 for blocking issues (failed/incomplete), 🟡 for warnings (slow/expensive but succeeded).
+
+### Where to look for data
+
+- **Token counts**: telemetry files, meta.json, checkpoint.json
+- **Duration**: checkpoint.json `duration` field, or calculate from timestamps in handoff
+- **Failures**: handoff.md phase statuses, log files in `.opencode/pipeline/logs/`
+- **Retries**: count how many times same agent appears in logs
+- **Fallbacks**: check `model` field in meta.json vs configured primary in oh-my-opencode.jsonc
 
 ## Rules
 

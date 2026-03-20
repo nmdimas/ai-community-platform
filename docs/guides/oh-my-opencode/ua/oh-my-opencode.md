@@ -119,6 +119,30 @@ flowchart LR
 | `/audit` | Тільки фаза 5 (audit loop) |
 | `/finish` | Resume з handoff.md стану |
 
+### Стабільність Ultraworks
+
+`Ultraworks` тепер має окремий wrapper стабільності в [builder/monitor/ultraworks-monitor.sh](/workspaces/ai-community-platform/builder/monitor/ultraworks-monitor.sh):
+
+- глобальний wall-clock timeout через `ULTRAWORKS_MAX_RUNTIME` (default: `7200`)
+- stall watchdog через `ULTRAWORKS_STALL_TIMEOUT` (default: `900`)
+- watchdog дивиться одночасно на ріст task log і оновлення `.opencode/pipeline/handoff.md`
+- якщо немає прогресу, wrapper зупиняє `opencode run`, запускає post-mortem summary і нормалізацію summary
+- even-on-failure зберігається `builder/tasks/summary/*.md`, а не тільки лог
+
+Корисні env vars:
+
+```bash
+ULTRAWORKS_MAX_RUNTIME=7200
+ULTRAWORKS_STALL_TIMEOUT=900
+ULTRAWORKS_WATCHDOG_INTERVAL=30
+```
+
+Headless запуск:
+
+```bash
+./builder/monitor/ultraworks-monitor.sh headless "$(cat builder/tasks/todo/my-task.md)"
+```
+
 ### Таблиця моделей Ultraworks
 
 | Агент | Workflow | Primary | Fallback 1 | Fallback 2 | Fallback 3 |

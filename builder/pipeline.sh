@@ -2074,6 +2074,14 @@ Task: Create the final task summary for this pipeline run.
 ## Що треба доробити
 - ...
 
+## Рекомендації по оптимізації
+> Ця секція ОБОВ'ЯЗКОВА якщо є: фейли агентів, аномальна кількість токенів (>500K на агента), аномальна тривалість (>15хв на агента), retry storm (3+ retry одного агента), pipeline FAIL/INCOMPLETE.
+
+### 🔴/🟡 [Тип аномалії]: [опис]
+**Що сталось:**
+**Вплив:**
+**Рекомендація:**
+
 ## Пропозиція до наступної задачі
 - Назва задачі
 - Чому її варто створити зараз
@@ -2085,6 +2093,8 @@ Task: Create the final task summary for this pipeline run.
 - Include only agents that actually worked on the task.
 - If an agent log shows no blocking issues, say so explicitly.
 - If the pipeline failed, clearly name the failing agent and the unfinished work.
+- **If any anomaly detected** (agent failed, timeout, >500K tokens per agent, >15min per agent, 3+ retries, pipeline FAIL): add \`## Рекомендації по оптимізації\` section with concrete fixes. Use 🔴 for blocking, 🟡 for warnings.
+- If pipeline completed normally with no anomalies: SKIP the optimization section entirely.
 - End with exactly one concrete proposed follow-up task.
 - Do not overwrite other reports; write only to \`${TASK_SUMMARY_FILE}\`.
 

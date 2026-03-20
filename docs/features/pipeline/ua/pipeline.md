@@ -240,6 +240,28 @@ standard + agent task:
 | `a` | Архівувати завершені |
 | `+/-` | Змінити пріоритет todo-задачі |
 
+### Stability Guards
+
+Для `Ultraworks` окремо діє wrapper стабільності в `builder/monitor/ultraworks-monitor.sh`.
+
+Він дає:
+- wall-clock timeout через `ULTRAWORKS_MAX_RUNTIME` (default `7200`)
+- stall watchdog через `ULTRAWORKS_STALL_TIMEOUT` (default `900`)
+- перевірку двох сигналів прогресу: ріст task log і оновлення `.opencode/pipeline/handoff.md`
+- автоматичний post-mortem summary + normalizer після fail/timeout/stall
+
+Практично це означає, що навіть якщо `Sisyphus` або дочірній subagent підвис, launcher повинен залишити:
+- task log у `.opencode/pipeline/logs/`
+- summary у `builder/tasks/summary/*.md`
+
+Корисні змінні середовища:
+
+```bash
+ULTRAWORKS_MAX_RUNTIME=7200
+ULTRAWORKS_STALL_TIMEOUT=900
+ULTRAWORKS_WATCHDOG_INTERVAL=30
+```
+
 Статус батчу показує час виконання, PID і кількість воркерів:
 `Running (3m 42s, PID 12345, 2 workers)`
 

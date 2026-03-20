@@ -15,6 +15,9 @@ YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
+ULTRAWORKS_MAX_RUNTIME="${ULTRAWORKS_MAX_RUNTIME:-7200}"
+ULTRAWORKS_STALL_TIMEOUT="${ULTRAWORKS_STALL_TIMEOUT:-900}"
+ULTRAWORKS_WATCHDOG_INTERVAL="${ULTRAWORKS_WATCHDOG_INTERVAL:-30}"
 
 # Helper functions
 print_header() {
@@ -205,17 +208,169 @@ _detect_model() {
 _task_log_path() {
     local timestamp
     timestamp=$(date +%Y%m%d_%H%M%S)
-    local slug="${1:-unknown}"
-    # Sanitize slug: lowercase, replace spaces/special chars with dashes
-    slug=$(echo "$slug" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9а-яіїєґ]/-/g' | sed 's/--*/-/g' | cut -c1-60)
+    local task_text="${1:-unknown}"
+    local slug
+    slug=$(python3 - "$task_text" <<'PYEOF'
+import re
+import sys
+
+text = sys.argv[1]
+title = ""
+for line in text.splitlines():
+    stripped = line.strip()
+    if stripped.startswith("# "):
+        title = stripped[2:].strip()
+        break
+    if stripped and not stripped.startswith("<!--"):
+        title = stripped
+        break
+
+if not title:
+    title = "unknown"
+
+slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+print((slug or "unknown")[:60])
+PYEOF
+)
     local log_dir="$PIPELINE_DIR/logs"
     mkdir -p "$log_dir"
     echo "$log_dir/task-${timestamp}-${slug}.log"
 }
 
+_postprocess_summary_cmd() {
+    local start_epoch="$1"
+    printf '%q' "./builder/normalize-summary.py"
+    printf ' --workflow ultraworks --since-epoch %q || true' "$start_epoch"
+}
+
+_timeout_prefix() {
+    if command -v timeout &>/dev/null && [[ "$ULTRAWORKS_MAX_RUNTIME" =~ ^[0-9]+$ ]] && (( ULTRAWORKS_MAX_RUNTIME > 0 )); then
+        printf 'timeout %q ' "$ULTRAWORKS_MAX_RUNTIME"
+    fi
+}
+
+_watchdog_marker_path() {
+    local log_file="$1"
+    echo "${log_file}.watchdog"
+}
+
+_start_watchdog() {
+    local pipeline_pid="$1"
+    local log_file="$2"
+    local marker_file
+    marker_file=$(_watchdog_marker_path "$log_file")
+
+    rm -f "$marker_file"
+
+    if ! [[ "$ULTRAWORKS_STALL_TIMEOUT" =~ ^[0-9]+$ ]] || (( ULTRAWORKS_STALL_TIMEOUT <= 0 )); then
+        echo ""
+        return 0
+    fi
+
+    (
+        local last_log_size=0
+        local last_log_progress
+        local last_handoff_progress
+        last_log_progress=$(date +%s)
+        last_handoff_progress=$(date +%s)
+        local last_handoff_mtime=0
+
+        while kill -0 "$pipeline_pid" 2>/dev/null; do
+            sleep "$ULTRAWORKS_WATCHDOG_INTERVAL"
+
+            local now
+            now=$(date +%s)
+            local log_size=0
+            if [[ -f "$log_file" ]]; then
+                log_size=$(wc -c < "$log_file" 2>/dev/null || echo 0)
+            fi
+            if (( log_size > last_log_size )); then
+                last_log_size="$log_size"
+                last_log_progress="$now"
+            fi
+
+            local handoff_mtime=0
+            if [[ -f "$PIPELINE_DIR/handoff.md" ]]; then
+                handoff_mtime=$(stat -c %Y "$PIPELINE_DIR/handoff.md" 2>/dev/null || echo 0)
+            fi
+            if (( handoff_mtime > last_handoff_mtime )); then
+                last_handoff_mtime="$handoff_mtime"
+                last_handoff_progress="$now"
+            fi
+
+            local log_idle=$(( now - last_log_progress ))
+            local handoff_idle=$(( now - last_handoff_progress ))
+            if (( log_idle >= ULTRAWORKS_STALL_TIMEOUT && handoff_idle >= ULTRAWORKS_STALL_TIMEOUT )); then
+                printf 'stall:%ss\n' "$ULTRAWORKS_STALL_TIMEOUT" > "$marker_file"
+                echo "Ultraworks watchdog: no log or handoff progress for ${ULTRAWORKS_STALL_TIMEOUT}s, terminating pipeline." | tee -a "$log_file"
+                kill -TERM "$pipeline_pid" 2>/dev/null || true
+                sleep 10
+                kill -KILL "$pipeline_pid" 2>/dev/null || true
+                exit 0
+            fi
+        done
+    ) &
+
+    echo "$!"
+}
+
+_stop_watchdog() {
+    local watchdog_pid="${1:-}"
+    [[ -z "$watchdog_pid" ]] && return 0
+    kill "$watchdog_pid" 2>/dev/null || true
+    wait "$watchdog_pid" 2>/dev/null || true
+}
+
+_run_headless_pipeline() {
+    local task="$1"
+    local model="$2"
+    local log_file="$3"
+    local start_epoch="$4"
+
+    local -a run_cmd=(opencode run --command auto "$task")
+    if [[ -n "$model" ]]; then
+        run_cmd=(opencode run --model "$model" --command auto "$task")
+    fi
+
+    local pipeline_pid=""
+    if command -v timeout &>/dev/null && [[ "$ULTRAWORKS_MAX_RUNTIME" =~ ^[0-9]+$ ]] && (( ULTRAWORKS_MAX_RUNTIME > 0 )); then
+        timeout "$ULTRAWORKS_MAX_RUNTIME" "${run_cmd[@]}" > >(tee "$log_file") 2>&1 &
+    else
+        "${run_cmd[@]}" > >(tee "$log_file") 2>&1 &
+    fi
+    pipeline_pid=$!
+
+    local watchdog_pid=""
+    watchdog_pid=$(_start_watchdog "$pipeline_pid" "$log_file")
+
+    local pipeline_status=0
+    set +e
+    wait "$pipeline_pid"
+    pipeline_status=$?
+    set -e
+
+    _stop_watchdog "$watchdog_pid"
+
+    local marker_file
+    marker_file=$(_watchdog_marker_path "$log_file")
+    if [[ -f "$marker_file" ]]; then
+        echo "Ultraworks pipeline stopped by watchdog ($(cat "$marker_file"))." | tee -a "$log_file"
+        rm -f "$marker_file"
+    elif [[ "$pipeline_status" -eq 124 || "$pipeline_status" -eq 137 ]]; then
+        echo "Ultraworks wrapper timeout after ${ULTRAWORKS_MAX_RUNTIME}s" | tee -a "$log_file"
+    fi
+
+    ./builder/postmortem-summary.sh 2>&1 | tee -a "$log_file" || true
+    ./builder/normalize-summary.py --workflow ultraworks --since-epoch "$start_epoch" 2>&1 | tee -a "$log_file" || true
+
+    return "$pipeline_status"
+}
+
 _launch_opencode_session() {
     local session_name="$1"
     local task_description="${2:-}"
+    local start_epoch
+    start_epoch=$(date +%s)
 
     # Detect best available model for Sisyphus orchestration
     local model
@@ -234,12 +389,10 @@ _launch_opencode_session() {
         log_file=$(_task_log_path "$task_description")
         echo -e "${BLUE}Log:${NC} $log_file"
 
-        # Headless mode: use 'opencode run --command auto' for full pipeline
-        # stdout+stderr are tee'd to log file for post-mortem debugging
-        local escaped_task
-        escaped_task=$(printf '%q' "$task_description")
+        local runner
+        printf -v runner '%q %q %q' "$SCRIPT_DIR/ultraworks-monitor.sh" headless "$task_description"
         tmux new-session -d -s "$session_name" -c "$PROJECT_ROOT" \
-            "opencode run $model_flag --command auto $escaped_task 2>&1 | tee '$log_file'; echo '' | tee -a '$log_file'; echo 'Pipeline finished. Press Enter to close.' | tee -a '$log_file'; read"
+            "bash -lc '$runner; status=\$?; echo; echo \"Pipeline finished with status \$status. Press Enter to close.\"; read; exit \$status'"
         echo -e "${CYAN}Pipeline running. Attach: tmux attach -t $session_name${NC}"
     else
         # Interactive mode: just start opencode TUI (no logging)
@@ -326,18 +479,25 @@ main() {
             fi
             local model
             model=$(_detect_model)
-            local model_flag=""
             if [[ -n "$model" ]]; then
-                model_flag="--model $model"
                 echo -e "${BLUE}Model:${NC} $model"
             fi
             local log_file
             log_file=$(_task_log_path "$task")
+            local start_epoch
+            start_epoch=$(date +%s)
             echo -e "${GREEN}Running Sisyphus pipeline (headless)...${NC}"
             echo -e "${BLUE}Task:${NC} $task"
             echo -e "${BLUE}Log:${NC} $log_file"
+            if command -v timeout &>/dev/null && [[ "$ULTRAWORKS_MAX_RUNTIME" =~ ^[0-9]+$ ]] && (( ULTRAWORKS_MAX_RUNTIME > 0 )); then
+                echo -e "${BLUE}Max runtime:${NC} ${ULTRAWORKS_MAX_RUNTIME}s"
+            fi
+            if [[ "$ULTRAWORKS_STALL_TIMEOUT" =~ ^[0-9]+$ ]] && (( ULTRAWORKS_STALL_TIMEOUT > 0 )); then
+                echo -e "${BLUE}Stall watchdog:${NC} ${ULTRAWORKS_STALL_TIMEOUT}s"
+            fi
             echo ""
-            exec opencode run $model_flag --command auto "$task" 2>&1 | tee "$log_file"
+            _run_headless_pipeline "$task" "$model" "$log_file" "$start_epoch"
+            exit $?
             ;;
         logs)
             # Show recent task logs

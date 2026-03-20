@@ -7,9 +7,22 @@
 Builder pipeline використовує **8 спеціалізованих AI агентів**, кожен з яких виконує певну роль в процесі розробки:
 
 ```
-Task → Planner → Architect → Coder → Validator → Tester → Documenter → Summarizer
-                     ↓
-                  Auditor (optional)
+Task → Planner → Preflight → Env-Check → Architect → Coder → Validator → Tester → Documenter → Summarizer
+                       ↓           ↓
+                 preflight()  env_check()    ↓
+                                              Auditor (optional)
+```
+
+### Pre-flight фази
+
+1. **Preflight** (`preflight()`): Перевіряє базові інструменти (opencode CLI, Docker, git)
+2. **Env-Check** (`env_check()`): Валідує оточення (PHP, Python, Node, PostgreSQL, Redis, extensions)
+
+Детальніше про env-check дивіться в [README.md](README.md#перевірка-оточення-env-check).
+Task → Planner → Preflight → Env-Check → Architect → Coder → Validator → Tester → Documenter → Summarizer
+                       ↓           ↓
+                 preflight()  env_check()    ↓
+                                              Auditor (optional)
 ```
 
 ### Агенти за ролями

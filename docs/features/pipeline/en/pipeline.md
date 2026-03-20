@@ -240,6 +240,28 @@ Keyboard shortcuts:
 | `a` | Archive completed tasks |
 | `+/-` | Change priority of todo task |
 
+### Stability Guards
+
+`Ultraworks` has a dedicated stability wrapper in `builder/monitor/ultraworks-monitor.sh`.
+
+It adds:
+- wall-clock timeout via `ULTRAWORKS_MAX_RUNTIME` (default `7200`)
+- stall watchdog via `ULTRAWORKS_STALL_TIMEOUT` (default `900`)
+- progress checks for both task-log growth and `.opencode/pipeline/handoff.md` updates
+- automatic post-mortem summary generation and normalization after fail/timeout/stall
+
+In practice this means that even if `Sisyphus` or a delegated subagent stalls, the launcher should still leave:
+- a task log in `.opencode/pipeline/logs/`
+- a summary in `builder/tasks/summary/*.md`
+
+Useful environment variables:
+
+```bash
+ULTRAWORKS_MAX_RUNTIME=7200
+ULTRAWORKS_STALL_TIMEOUT=900
+ULTRAWORKS_WATCHDOG_INTERVAL=30
+```
+
 Batch status shows elapsed time, PID, and worker count:
 `Running (3m 42s, PID 12345, 2 workers)`
 

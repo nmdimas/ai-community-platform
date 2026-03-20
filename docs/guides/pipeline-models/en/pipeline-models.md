@@ -51,6 +51,8 @@ Agents should draw from this core provider set:
 | Validator | `minimax/MiniMax-M2.5-highspeed` | gpt-5.2, kimi-k2.5, minimax-m2.5-free, gemini-3.1-flash-lite-preview, deepseek-r1-qwen3-8b:free |
 | Documenter | `openai/gpt-5.4` | claude-sonnet-4-6, gemini-3-flash-preview, M2.5, kimi-k2.5, big-pickle, openrouter/free |
 | Summarizer | `openai/gpt-5.4` | claude-opus-4-6, gemini-3.1-pro-preview, M2.7, glm-5, big-pickle, deepseek-r1-0528:free |
+| Translater | `google/gemini-3.1-pro-preview` | gpt-5.4, claude-sonnet-4-6, M2.5, kimi-k2.5, big-pickle, openrouter/free |
+| Security-Review | `anthropic/claude-opus-4-6` | gpt-5.4, glm-5, M2.7, big-pickle, gemini-3.1-pro-preview, openrouter/free |
 
 ## Ultraworks Agent Matrix
 
@@ -65,6 +67,8 @@ Agents should draw from this core provider set:
 | `s-auditor` | `Ultraworks` | `anthropic/claude-opus-4-6` | `openai/gpt-5.4` | `opencode-go/glm-5` | `minimax/MiniMax-M2.7` | audit, compliance, quality gate |
 | `s-documenter` | `Ultraworks` | `openai/gpt-5.4` | `anthropic/claude-sonnet-4-6` | `google/gemini-3-flash-preview` | `minimax/MiniMax-M2.5` | documentation updates |
 | `s-summarizer` | `Ultraworks` | `openai/gpt-5.4` | `anthropic/claude-opus-4-6` | `google/gemini-3.1-pro-preview` | `minimax/MiniMax-M2.7` | final analysis and summary |
+| `s-translater` | `Ultraworks` | `google/gemini-3.1-pro-preview` | `openai/gpt-5.4` | `anthropic/claude-sonnet-4-6` | `minimax/MiniMax-M2.5` | context-aware ua/en translation |
+| `s-security-review` | `Ultraworks` | `anthropic/claude-opus-4-6` | `openai/gpt-5.4` | `opencode-go/glm-5` | `minimax/MiniMax-M2.7` | deep OWASP-based security analysis |
 
 ## Builder Agent Matrix
 
@@ -78,6 +82,8 @@ Agents should draw from this core provider set:
 | `auditor` | `Builder` | `anthropic/claude-opus-4-6` | `openai/gpt-5.4` | `opencode-go/glm-5` | `minimax/MiniMax-M2.7` | audit, compliance, quality gate |
 | `documenter` | `Builder` | `openai/gpt-5.4` | `anthropic/claude-sonnet-4-6` | `google/gemini-3-flash-preview` | `minimax/MiniMax-M2.5` | documentation updates |
 | `summarizer` | `Builder` | `openai/gpt-5.4` | `anthropic/claude-opus-4-6` | `google/gemini-3.1-pro-preview` | `minimax/MiniMax-M2.7` | final analysis and summary |
+| `translater` | `Builder` | `google/gemini-3.1-pro-preview` | `openai/gpt-5.4` | `anthropic/claude-sonnet-4-6` | `minimax/MiniMax-M2.5` | context-aware ua/en translation |
+| `security-review` | `Builder` | `anthropic/claude-opus-4-6` | `openai/gpt-5.4` | `opencode-go/glm-5` | `minimax/MiniMax-M2.7` | deep OWASP-based security analysis |
 
 ## Configuration
 

@@ -575,6 +575,83 @@ rm -rf "$HELPER_DIR"
 echo ""
 
 # ══════════════════════════════════════════════════
+# Test 15: postmortem summary uses task-name fallback slug
+# ══════════════════════════════════════════════════
+echo "Test 15: postmortem slug fallback"
+
+POSTMORTEM_ROOT="$TEST_DIR/postmortem"
+mkdir -p "$POSTMORTEM_ROOT/.opencode/pipeline" "$POSTMORTEM_ROOT/builder/tasks/summary"
+cat > "$POSTMORTEM_ROOT/.opencode/pipeline/handoff.md" << 'EOF'
+# Pipeline Handoff
+
+- **Pipeline ID**: unknown
+- **Task**: Add Security Review Agent
+
+## Architect
+
+- **Status**: done
+- **Result**: Prepared the implementation plan
+---
+EOF
+
+postmortem_output=$(PIPELINE_REPO_ROOT="$POSTMORTEM_ROOT" bash "$REPO_ROOT/builder/postmortem-summary.sh" "$POSTMORTEM_ROOT/.opencode/pipeline/handoff.md" 2>/dev/null || true)
+postmortem_file=$(find "$POSTMORTEM_ROOT/builder/tasks/summary" -maxdepth 1 -type f -name '*.md' | head -1)
+
+postmortem_created="false"
+if [[ -n "$postmortem_file" && -f "$postmortem_file" ]]; then
+  postmortem_created="true"
+fi
+assert_eq "postmortem file created" "true" "$postmortem_created"
+assert_eq "postmortem slug uses task name" "true" "$(basename "$postmortem_file" | grep -q 'add-security-review-agent' && echo true || echo false)"
+assert_eq "postmortem includes workflow" "true" "$(grep -q '\*\*Workflow:\*\* Ultraworks' "$postmortem_file" && echo true || echo false)"
+
+rm -rf "$POSTMORTEM_ROOT"
+echo ""
+
+# ══════════════════════════════════════════════════
+# Test 16: normalize-summary upgrades unknown postmortem title
+# ══════════════════════════════════════════════════
+echo "Test 16: normalize-summary title fallback"
+
+NORMALIZE_ROOT="$TEST_DIR/normalize"
+mkdir -p "$NORMALIZE_ROOT/.opencode/pipeline" "$NORMALIZE_ROOT/builder/tasks/summary"
+cat > "$NORMALIZE_ROOT/builder/cost-tracker.sh" << 'EOF'
+#!/usr/bin/env bash
+cat << 'OUT'
+**Workflow:** Ultraworks
+
+## Telemetry
+| Agent | Model | Input | Output | Price | Time |
+|-------|-------|------:|-------:|------:|-----:|
+| sisyphus | opencode-go/glm-5 | 0 | 0 | $0.0000 | 0s |
+OUT
+EOF
+chmod +x "$NORMALIZE_ROOT/builder/cost-tracker.sh"
+cat > "$NORMALIZE_ROOT/.opencode/pipeline/handoff.md" << 'EOF'
+- **Task**: Add Translater Agent
+- **Profile**: complex
+
+## Architect
+- **Status**: done
+- **Result**: Added architecture notes
+EOF
+
+SUMMARY_FILE_NORMALIZE="$NORMALIZE_ROOT/builder/tasks/summary/20260320-unknown.md"
+cat > "$SUMMARY_FILE_NORMALIZE" << 'EOF'
+# Pipeline Summary: unknown
+
+> **Auto-generated post-mortem**
+EOF
+
+normalize_output=$(PIPELINE_REPO_ROOT="$NORMALIZE_ROOT" python3 "$REPO_ROOT/builder/normalize-summary.py" --workflow ultraworks --summary-file "$SUMMARY_FILE_NORMALIZE" --handoff-file "$NORMALIZE_ROOT/.opencode/pipeline/handoff.md" 2>/dev/null || true)
+
+assert_eq "normalize rewrites title from handoff task" "true" "$(grep -q '^# Add Translater Agent$' "$SUMMARY_FILE_NORMALIZE" && echo true || echo false)"
+assert_eq "normalize adds workflow header" "true" "$(grep -q '\*\*Workflow:\*\* Ultraworks' "$SUMMARY_FILE_NORMALIZE" && echo true || echo false)"
+
+rm -rf "$NORMALIZE_ROOT"
+echo ""
+
+# ══════════════════════════════════════════════════
 # Results
 # ══════════════════════════════════════════════════
 echo "========================"

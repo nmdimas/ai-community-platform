@@ -380,6 +380,29 @@ for message in root_export.get("messages", []):
             "duration_seconds": duration_seconds,
         })
 
+if not agent_rows:
+    root_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    root_tmp.close()
+    with open(root_tmp.name, "w") as f:
+        json.dump(root_export, f)
+    tokens = bash_json(f'. "{repo_root}/builder/cost-tracker.sh"; summarize_export_tokens "{root_tmp.name}"')
+    tools = bash_json(f'. "{repo_root}/builder/cost-tracker.sh"; extract_session_tools "{root_tmp.name}"')
+    files_read = bash_json(f'. "{repo_root}/builder/cost-tracker.sh"; extract_session_files_read "{root_tmp.name}"')
+    model = subprocess.check_output(["bash", "-lc", f'. "{repo_root}/builder/cost-tracker.sh"; extract_export_model "{root_tmp.name}"'], cwd=repo_root, text=True).strip()
+    cost = float(subprocess.check_output(["bash", "-lc", f'. "{repo_root}/builder/cost-tracker.sh"; calculate_cost_from_values "{model}" "{tokens.get("input_tokens",0)}" "{tokens.get("output_tokens",0)}" "{tokens.get("cache_read",0)}"'], cwd=repo_root, text=True).strip())
+    info = root_export.get("info", {}).get("time", {})
+    duration_seconds = max(0, int((info.get("updated", 0) - info.get("created", 0)) / 1000))
+    os.unlink(root_tmp.name)
+    agent_rows.append({
+        "agent": "sisyphus",
+        "model": model,
+        "tokens": tokens,
+        "tools": tools,
+        "files_read": files_read,
+        "cost": cost,
+        "duration_seconds": duration_seconds,
+    })
+
 def money(val):
     return f"${val:.4f}"
 
