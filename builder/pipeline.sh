@@ -26,8 +26,9 @@ REPO_ROOT="${PIPELINE_REPO_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 PIPELINE_DIR="$REPO_ROOT/.opencode/pipeline"
 LOG_DIR="$PIPELINE_DIR/logs"
 REPORT_DIR="$PIPELINE_DIR/reports"
-HANDOFF_FILE="$PIPELINE_DIR/handoff.md"
+HANDOFF_LINK="$PIPELINE_DIR/handoff.md"       # symlink — agents always read this path
 HANDOFF_TEMPLATE="$PIPELINE_DIR/handoff-template.md"
+# Actual per-task handoff file is set in init_handoff()
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Colors
@@ -78,13 +79,20 @@ FREE_MODELS="${PIPELINE_FREE_MODELS:-opencode/big-pickle,opencode/gpt-5-nano,ope
 # Fallback model chains (override via env: PIPELINE_FALLBACK_ARCHITECT="model1,model2")
 # Tiers: subscriptions (Claude+Codex) → free (OpenRouter) → cheap (paid per-token)
 # Subscriptions already paid (flat rate), free costs nothing, cheap is last resort
-FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-anthropic/claude-sonnet-4-20250514,openai/gpt-5.3-codex,free,cheap}"
-FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openai/gpt-5.3-codex,anthropic/claude-opus-4-20250514,free,cheap}"
-FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-anthropic/claude-sonnet-4-20250514,openai/codex-mini-latest,free,cheap}"
-FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-anthropic/claude-sonnet-4-20250514,openai/codex-mini-latest,free,cheap}"
-FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-anthropic/claude-opus-4-20250514,free,cheap}"
-FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-anthropic/claude-sonnet-4-20250514,free,cheap}"
-FALLBACK_SUMMARIZER="${PIPELINE_FALLBACK_SUMMARIZER:-openai/gpt-5.4,openai/gpt-5.3-codex,free,cheap}"
+# Fallback model chains: 5 fallbacks × 5 providers per agent
+# Providers: anthropic, openai, google, minimax, opencode, openrouter
+# Primary model (from agent .md) excluded; each fallback = different provider
+#
+# "free" expands to: opencode/big-pickle,opencode/gpt-5-nano,opencode/minimax-m2.5-free
+# "cheap" expands to: openrouter/deepseek-v3.2,openrouter/gemini-3.1-flash-lite
+# Order: available providers first (openrouter, opencode, minimax), then rate-limited (openai, google, anthropic)
+FALLBACK_ARCHITECT="${PIPELINE_FALLBACK_ARCHITECT:-openrouter/anthropic/claude-sonnet-4,opencode/claude-opus-4-6,minimax/minimax-m2.7,openai/gpt-5.1-codex,google/antigravity-gemini-3.1-pro}"
+FALLBACK_CODER="${PIPELINE_FALLBACK_CODER:-openrouter/anthropic/claude-sonnet-4,opencode/claude-sonnet-4-6,minimax/minimax-m2.7,openai/gpt-5.4,google/antigravity-gemini-3.1-pro}"
+FALLBACK_VALIDATOR="${PIPELINE_FALLBACK_VALIDATOR:-openrouter/deepseek/deepseek-v3.2,opencode/gpt-5-nano,minimax/minimax-m2.7,anthropic/claude-haiku-4-5,google/antigravity-gemini-3-flash}"
+FALLBACK_TESTER="${PIPELINE_FALLBACK_TESTER:-openrouter/anthropic/claude-sonnet-4,opencode/claude-sonnet-4-6,minimax/minimax-m2.7,openai/gpt-5.4,google/antigravity-gemini-3.1-pro}"
+FALLBACK_DOCUMENTER="${PIPELINE_FALLBACK_DOCUMENTER:-openrouter/anthropic/claude-sonnet-4,opencode/gpt-5.4,minimax/minimax-m2.7,anthropic/claude-sonnet-4-6,google/antigravity-gemini-3.1-pro}"
+FALLBACK_AUDITOR="${PIPELINE_FALLBACK_AUDITOR:-openrouter/anthropic/claude-sonnet-4,opencode/claude-opus-4-6,minimax/minimax-m2.7,openai/gpt-5.1-codex,google/antigravity-gemini-3.1-pro}"
+FALLBACK_SUMMARIZER="${PIPELINE_FALLBACK_SUMMARIZER:-openrouter/anthropic/claude-sonnet-4,opencode/gpt-5.4,minimax/minimax-m2.7,anthropic/claude-sonnet-4-6,google/antigravity-gemini-3.1-pro}"
 
 # ── Help ──────────────────────────────────────────────────────────────
 
@@ -108,6 +116,7 @@ Options:
   --no-commit         Skip auto-commits between agents
   --profile <name>    Use task profile: quick-fix, standard, complex
   --skip-planner      Skip the planner agent (use default pipeline)
+  --skip-env-check    Skip environment prerequisites check
   -h, --help          Show this help
 
 Agents: planner, architect, coder, auditor, validator, tester, documenter, summarizer
@@ -176,6 +185,7 @@ TELEGRAM_BOT_TOKEN="${PIPELINE_TELEGRAM_BOT_TOKEN:-}"
 TELEGRAM_CHAT_ID="${PIPELINE_TELEGRAM_CHAT_ID:-}"
 PIPELINE_PROFILE=""
 SKIP_PLANNER=false
+SKIP_ENV_CHECK=false
 
 # Pipeline cost budget (empty = unlimited)
 PIPELINE_MAX_COST="${PIPELINE_MAX_COST:-}"
@@ -244,6 +254,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-planner)
       SKIP_PLANNER=true
+      shift
+      ;;
+    --skip-env-check)
+      SKIP_ENV_CHECK=true
       shift
       ;;
     --help|-h)
@@ -449,6 +463,88 @@ preflight() {
   if [[ $errors -gt 0 ]]; then
     echo -e "${RED}Pre-flight failed with ${errors} error(s). Aborting.${NC}"
     exit 1
+  fi
+}
+
+# ── Environment check ────────────────────────────────────────────────
+
+env_check() {
+  if [[ "$SKIP_ENV_CHECK" == true ]]; then
+    echo -e "${YELLOW}⚠ Environment check skipped (--skip-env-check)${NC}"
+    return 0
+  fi
+
+  local env_check_script="$REPO_ROOT/builder/env-check.sh"
+  if [[ ! -x "$env_check_script" ]]; then
+    echo -e "${YELLOW}⚠ env-check.sh not found or not executable — skipping environment check${NC}"
+    return 0
+  fi
+
+  echo -e "${BOLD}Environment check...${NC}"
+
+  # Build --app flags from task context (detect apps mentioned in task message)
+  local app_flags=()
+  local task_lower
+  task_lower=$(echo "$TASK_MESSAGE" | tr '[:upper:]' '[:lower:]')
+  [[ "$task_lower" == *"core"* ]]               && app_flags+=("--app" "core")
+  [[ "$task_lower" == *"knowledge"* ]]           && app_flags+=("--app" "knowledge-agent")
+  [[ "$task_lower" == *"dev-reporter"* ]]        && app_flags+=("--app" "dev-reporter-agent")
+  [[ "$task_lower" == *"news-maker"* || "$task_lower" == *"news_maker"* ]] && app_flags+=("--app" "news-maker-agent")
+  [[ "$task_lower" == *"wiki"* ]]                && app_flags+=("--app" "wiki-agent")
+
+  local env_report_file="$PIPELINE_DIR/env-report.json"
+  local env_exit_code=0
+
+  "$env_check_script" "${app_flags[@]+"${app_flags[@]}"}" \
+    --report-file "$env_report_file" \
+    2>&1 || env_exit_code=$?
+
+  if [[ $env_exit_code -eq 2 ]]; then
+    # Fatal: cancel pipeline
+    emit_event "ENV_FATAL" "report=${env_report_file}"
+    echo -e "${RED}${BOLD}Environment check FATAL — pipeline cancelled.${NC}"
+    echo -e "${RED}Fix the issues above and retry.${NC}"
+    send_telegram "🔴 <b>ENV_FATAL: Pipeline cancelled</b>
+📋 <i>${TASK_MESSAGE}</i>
+⚠️ Fatal environment prerequisites missing. Check env-report.json."
+    _task_move_to_failed "env-fatal" "0"
+    exit 3
+  elif [[ $env_exit_code -eq 1 ]]; then
+    # Warnings: continue but note in handoff
+    emit_event "ENV_WARN" "report=${env_report_file}"
+    echo -e "${YELLOW}⚠ Environment warnings detected — pipeline continues with degraded capability.${NC}"
+    # Write warnings to handoff if it exists
+    if [[ -f "$HANDOFF_FILE" ]]; then
+      {
+        echo ""
+        echo "## Environment"
+        echo ""
+        echo "- **Status**: warnings (exit 1)"
+        echo "- **Report**: ${env_report_file}"
+        if command -v jq &>/dev/null && [[ -f "$env_report_file" ]]; then
+          echo "- **Summary**: $(jq -r '.summary // "unknown"' "$env_report_file" 2>/dev/null)"
+          echo "- **Warnings**:"
+          jq -r '.checks[] | select(.status == "warn") | "  - \(.name): \(.detail)"' "$env_report_file" 2>/dev/null || true
+        fi
+      } >> "$HANDOFF_FILE"
+    fi
+  else
+    # All pass: write env versions to handoff
+    emit_event "ENV_PASS" "report=${env_report_file}"
+    if [[ -f "$HANDOFF_FILE" ]]; then
+      {
+        echo ""
+        echo "## Environment"
+        echo ""
+        echo "- **Status**: pass"
+        echo "- **Report**: ${env_report_file}"
+        if command -v jq &>/dev/null && [[ -f "$env_report_file" ]]; then
+          echo "- **Summary**: $(jq -r '.summary // "unknown"' "$env_report_file" 2>/dev/null)"
+          echo "- **Versions**:"
+          jq -r '.environment | to_entries[] | select(.value != "") | "  - \(.key): \(.value)"' "$env_report_file" 2>/dev/null || true
+        fi
+      } >> "$HANDOFF_FILE"
+    fi
   fi
 }
 
@@ -662,13 +758,14 @@ write_checkpoint() {
   local duration="$3"
   local commit_hash="${4:-}"
   local tokens_json="${5:-{}}"
+  local actual_model="${6:-$(get_current_model "$agent" 2>/dev/null || echo "unknown")}"
 
   [[ -f "$CHECKPOINT_FILE" ]] || return 0
 
   # Use python3 to safely update JSON (stdin to avoid shell quoting issues)
-  python3 - "$CHECKPOINT_FILE" "$agent" "$status" "$duration" "$commit_hash" "$tokens_json" <<'PYEOF'
+  python3 - "$CHECKPOINT_FILE" "$agent" "$status" "$duration" "$commit_hash" "$tokens_json" "$actual_model" <<'PYEOF'
 import json, sys
-cp_file, agent, status, duration, commit, tokens_raw = sys.argv[1:7]
+cp_file, agent, status, duration, commit, tokens_raw, model = sys.argv[1:8]
 with open(cp_file, 'r') as f:
     data = json.load(f)
 try:
@@ -678,6 +775,7 @@ except json.JSONDecodeError:
 from datetime import datetime
 data['agents'][agent] = {
     'status': status,
+    'model': model,
     'duration': int(duration),
     'commit': commit,
     'finished': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -882,6 +980,18 @@ get_fallback_chain() {
 is_rate_limit_error() {
   local log_file="$1"
   grep -qiE 'rate.?limit|429|quota|too many requests|capacity|overloaded' "$log_file" 2>/dev/null
+}
+
+# Provider/model unavailable — credentials missing, model not found, auth failure
+is_provider_error() {
+  local log_file="$1"
+  grep -qiE 'ProviderModelNotFoundError|Model not found|provider.*not.*found|credential|unauthorized|authentication.*fail|invalid.*api.?key|no.*provider' "$log_file" 2>/dev/null
+}
+
+# Any error that should trigger a fallback to the next model
+is_fallback_worthy_error() {
+  local log_file="$1"
+  is_rate_limit_error "$log_file" || is_provider_error "$log_file"
 }
 
 get_current_model() {
@@ -1337,7 +1447,7 @@ run_agent() {
     models_to_try="${original_model},${fallback_chain}"
   fi
 
-  emit_event "AGENT_START" "agent=${agent}|model=${original_model}"
+  emit_event "AGENT_START" "agent=${agent}|model=${original_model}|fallbacks=${fallback_chain:-none}"
 
   echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${BLUE}▶ Agent:   ${YELLOW}${agent}${NC}"
@@ -1373,15 +1483,17 @@ run_agent() {
     local agent_start_epoch
     agent_start_epoch=$(date +%s)
 
+    # Use 'script' to allocate a pseudo-TTY so opencode streams output
+    # line-by-line instead of block-buffering (Node.js buffers stdout in pipes)
+    local run_cmd="opencode run --agent ${agent} $(printf '%q' "$message")"
     if command -v timeout &>/dev/null; then
-      (cd "$REPO_ROOT" && timeout "$agent_timeout" opencode run \
-        --agent "$agent" \
-        "$message") \
+      run_cmd="timeout ${agent_timeout} ${run_cmd}"
+    fi
+    if command -v script &>/dev/null; then
+      (cd "$REPO_ROOT" && script -qc "$run_cmd" /dev/null) \
         < /dev/null 2>&1 | tee "$log_file" &
     else
-      (cd "$REPO_ROOT" && opencode run \
-        --agent "$agent" \
-        "$message") \
+      (cd "$REPO_ROOT" && eval "$run_cmd") \
         < /dev/null 2>&1 | tee "$log_file" &
     fi
     local agent_pid=$!
@@ -1452,10 +1564,15 @@ run_agent() {
       cache_w=$(echo "$tokens_json" | jq -r '.cache_write' 2>/dev/null || echo 0)
 
       local agent_dur=$(( agent_end_epoch - agent_start_epoch ))
-      emit_event "AGENT_DONE" "agent=${agent}|status=ok|duration=${agent_dur}s|tokens=${in_tok}/${out_tok}|cache=${cache_r}"
+      local actual_model_used
+      actual_model_used=$(get_current_model "$agent")
+      emit_event "AGENT_DONE" "agent=${agent}|model=${actual_model_used}|status=ok|duration=${agent_dur}s|tokens=${in_tok}/${out_tok}|cache=${cache_r}"
 
       echo ""
       echo -e "${GREEN}✓ Agent '${agent}' completed successfully${NC}"
+      if [[ "$actual_model_used" != "$original_model" ]]; then
+        echo -e "  ${YELLOW}Model: ${actual_model_used} (fallback from ${original_model})${NC}"
+      fi
       echo -e "  ${BLUE}Tokens: ${in_tok} in / ${out_tok} out | Cache: ${cache_r} read / ${cache_w} write${NC}"
       restore_agent_model "$agent" "$original_model"
 
@@ -1473,11 +1590,14 @@ run_agent() {
       emit_event "AGENT_DONE" "agent=${agent}|status=fail|exit=${exit_code}"
       echo -e "${RED}✗ Agent '${agent}' failed (exit code: ${exit_code})${NC}"
 
-      # Check if it's a rate limit error — try fallback model
-      if is_rate_limit_error "$log_file" && [[ $fallback_index -lt ${#fallback_models[@]} ]]; then
+      # Check if it's a rate limit or provider error — try fallback model
+      if is_fallback_worthy_error "$log_file" && [[ $fallback_index -lt ${#fallback_models[@]} ]]; then
         local next_model="${fallback_models[$fallback_index]}"
         fallback_index=$((fallback_index + 1))
-        echo -e "${YELLOW}  Rate limit detected — switching to fallback model${NC}"
+        local err_type="Rate limit"
+        is_provider_error "$log_file" && err_type="Provider/model unavailable"
+        echo -e "${YELLOW}  ${err_type} detected — switching to fallback: ${next_model}${NC}"
+        emit_event "AGENT_FALLBACK" "agent=${agent}|from=$(get_current_model "$agent")|to=${next_model}"
         swap_agent_model "$agent" "$next_model"
         # Don't count fallback as a retry — reset attempt counter
         attempt=$((attempt - 1))
@@ -1846,11 +1966,23 @@ PROMPT
 init_handoff() {
   mkdir -p "$PIPELINE_DIR"
 
+  # Per-task handoff: handoff-<timestamp>-<slug>.md
+  local slug
+  slug=$(_task_slug "$TASK_MESSAGE" 2>/dev/null || echo "task")
+  HANDOFF_FILE="$PIPELINE_DIR/handoff-${TIMESTAMP}-${slug}.md"
+
   # Only create new handoff if not resuming (--from)
-  if [[ -n "$FROM_AGENT" && -f "$HANDOFF_FILE" ]]; then
+  if [[ -n "$FROM_AGENT" && -L "$HANDOFF_LINK" && -f "$HANDOFF_LINK" ]]; then
+    # Resuming: use whatever the symlink points to
+    HANDOFF_FILE="$(readlink -f "$HANDOFF_LINK")"
     echo -e "${BLUE}Using existing handoff file (resuming from ${FROM_AGENT})${NC}"
+    echo -e "${DIM}  ${HANDOFF_FILE}${NC}"
     return
   fi
+
+  # Point the symlink to this task's handoff
+  rm -f "$HANDOFF_LINK"
+  ln -s "$HANDOFF_FILE" "$HANDOFF_LINK"
 
   cat > "$HANDOFF_FILE" << EOF
 # Pipeline Handoff
@@ -1926,6 +2058,9 @@ main() {
 
   # Pre-flight
   preflight
+
+  # Environment check (validates runtimes, services, per-app deps)
+  env_check
 
   # Setup branch
   branch=$(setup_branch)
@@ -2295,6 +2430,11 @@ PYEOF
 📋 <i>${TASK_MESSAGE}</i>
 🌿 Branch: <code>${branch}</code>
 ⏱ Duration: $(( total_duration / 60 ))m"
+  fi
+
+  # Archive per-task handoff to logs dir (survives worktree cleanup)
+  if [[ -f "$HANDOFF_FILE" && "$HANDOFF_FILE" != "$HANDOFF_LINK" ]]; then
+    cp "$HANDOFF_FILE" "$LOG_DIR/${TIMESTAMP}_handoff.md" 2>/dev/null || true
   fi
 
   # Task file lifecycle: move to done or failed
