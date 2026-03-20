@@ -1539,6 +1539,18 @@ run_agent() {
 📋 <i>${loop_info}</i>
 💰 Cost so far: \$${CUMULATIVE_COST}"
 
+      # Stall/loop should trigger fallback (model may be unresponsive due to rate limit)
+      if [[ $fallback_index -lt ${#fallback_models[@]} ]]; then
+        local next_model="${fallback_models[$fallback_index]}"
+        fallback_index=$((fallback_index + 1))
+        echo -e "${YELLOW}  Stall detected — switching to fallback: ${next_model}${NC}"
+        emit_event "AGENT_FALLBACK" "agent=${agent}|from=$(get_current_model "$agent")|to=${next_model}|reason=stall"
+        swap_agent_model "$agent" "$next_model"
+        attempt=$((attempt - 1))
+        sleep 5
+        continue
+      fi
+
       restore_agent_model "$agent" "$original_model"
       return 1
     fi
