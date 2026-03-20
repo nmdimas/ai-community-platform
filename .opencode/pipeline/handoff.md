@@ -1,71 +1,51 @@
 # Pipeline Handoff
 
-- **Task**: Finish change: add-a2a-trace-sequence-visualization (remaining 4 tasks)
-- **Started**: 2026-03-20 16:30:00
+- **Task**: Finish OpenSpec change: add-environment-checker (remaining tasks)
+- **Started**: 2026-03-20
 - **Branch**: main
-- **Pipeline ID**: finish-a2a-trace-viz
+- **Pipeline ID**: finish-env-checker
 - **Profile**: standard
+- **Workflow**: Ultraworks
 
 ---
 
 ## Task Description
 
-Завершити 4 залишені задачі з OpenSpec change `add-a2a-trace-sequence-visualization`.
+Завершити незавершені пункти OpenSpec change `add-environment-checker`.
 
-### Remaining Tasks
+### Remaining Tasks (from tasks.md)
 
-1. **5.3** — Add integration coverage for discovery snapshot and invoke step event fields
-2. **7.1** — `vendor/bin/phpstan analyse` (core + hello-agent) passes with zero errors
-3. **7.2** — `vendor/bin/php-cs-fixer check --diff --allow-risky=yes` passes
-4. **7.3** — `vendor/bin/codecept run` (core + hello-agent functional + unit) passes
+1. **5.1** — Add `## Environment` section placeholder to `.opencode/pipeline/handoff-template.md`
+2. **7.1** — Update `builder/README.md` with env-check.sh usage, flags, exit codes, examples
+3. **7.2** — Create `docs/pipeline-env-checker.md` — developer-facing English documentation
+4. **7.3** — Update `builder/AGENTS.md` to mention env-check pre-flight step in pipeline flow diagram
+5. **8.1** — Run `shellcheck builder/env-check.sh` — zero warnings
+6. **8.6** — Verify `openspec validate add-environment-checker --strict` passes
 
 ### References
 
-- OpenSpec tasks: `openspec/changes/add-a2a-trace-sequence-visualization/tasks.md`
-- Spec deltas: `openspec/changes/add-a2a-trace-sequence-visualization/specs/`
-
-### Technical Context
-
-- Apps: `apps/core`, `apps/hello-agent`
-- Test framework: Codeception 5, PHPStan level 8
-- Existing tests in `apps/core/tests/` and `apps/hello-agent/tests/`
+- OpenSpec proposal: `openspec/changes/add-environment-checker/proposal.md`
+- OpenSpec tasks: `openspec/changes/add-environment-checker/tasks.md`
+- OpenSpec design: `openspec/changes/add-environment-checker/design.md`
+- Implementation: `builder/env-check.sh`, `builder/env-requirements.json`, `builder/pipeline.sh`
 
 ---
 
-## Coder
+## Documenter
 
-- **Status**: done
-- **Task**: Write integration tests (task 5.3)
-- **Result**: Added 17 integration tests across 2 new test files. All pass (17/17, 123 assertions).
-- **Files changed**:
-  - `apps/core/tests/Integration/Logging/DiscoverySnapshotEventFieldsTest.php` (new, 4 tests)
-  - `apps/core/tests/Integration/Logging/InvokeStepEventFieldsTest.php` (new, 13 tests)
-  - `openspec/changes/add-a2a-trace-sequence-visualization/tasks.md` (marked 5.3 done)
-- **Verification**: `vendor/bin/codecept run Integration --filter "DiscoverySnapshot|InvokeStep"` → OK (17 tests, 123 assertions). Unit suite: OK (283 tests, 950 assertions). Pre-existing failures in AsyncA2ADispatcherIntegrationTest (timing) and AgentRegistryApiCest are unrelated.
+- **Status**: pending
+- **Task**: Update documentation files (7.1, 7.2, 7.3)
 
 ---
 
 ## Validator
 
-- **Status**: pending (awaiting reviewer)
-- **Task**: PHPStan + CS-Fixer (tasks 7.1, 7.2)
-
----
-
-## Tester
-
-- **Status**: pending (awaiting reviewer)
-- **Task**: Run full test suite (task 7.3)
-
----
-
-## Reviewer
-
-- **Status**: in_progress
-- **Task**: Review integration-test changes from task 5.3 before validation/test phases
+- **Status**: pending
+- **Task**: Run shellcheck (task 8.1)
 
 ---
 
 ## Summarizer
 
 - **Status**: pending
+- **Final Summary**: Must write to `builder/tasks/summary/`

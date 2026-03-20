@@ -62,6 +62,86 @@ builder/
 
 - **[docs/setup/gemini-strategy.md](../docs/setup/gemini-strategy.md)** - Оптимізація витрат через Gemini
 
+## Перевірка оточення (env-check)
+
+Перед запуском pipeline рекомендується перевірити оточення:
+
+```bash
+./builder/env-check.sh
+```
+
+### Параметри env-check.sh
+
+| Параметр | Опис |
+|----------|------|
+| `--app <name>` | Перевірити вимоги для конкретного app (можно вказати кілька разів) |
+| `--json` | Вивести JSON-звіт у stdout |
+| `--report-file <path>` | Записати звіт у файл (за замовчуванням: `.opencode/pipeline/env-report.json`) |
+| `--quiet` | Приховати вивід для людей (тільки JSON) |
+| `--help` | Показати довідку |
+
+### Коди виходу
+
+| Код | Значення |
+|-----|----------|
+| `0` | Всі перевірки пройшли успішно |
+| `1` | Є попередження (pipeline може продовжити з обмеженнями) |
+| `2` | Критична помилка (pipeline повинен зупинитися) |
+
+### Приклади
+
+```bash
+# Перевірити глобальні вимоги
+./builder/env-check.sh
+
+# Перевірити вимоги для конкретного app
+./builder/env-check.sh --app core
+
+# Перевірити кілька apps
+./builder/env-check.sh --app core --app knowledge-agent
+
+# Отримати JSON-звіт
+./builder/env-check.sh --json
+
+# Записати звіт у файл
+./builder/env-check.sh --app news-maker-agent --report-file /tmp/env.json
+```
+
+### Інтеграція з pipeline
+
+`builder/pipeline.sh` автоматично запускає env-check перед виконанням задач. Результат записується у handoff:
+
+```markdown
+## Environment
+**Runtime Versions**: PHP 8.5, Python 3.12, Node 22
+**Services**: PostgreSQL 16, Redis 7
+**Check Status**: pass — All 12 checks passed
+```
+
+### Реєстр вимог
+
+Файл `builder/env-requirements.json` оголошує вимоги для кожного app:
+
+```json
+{
+  "global": {
+    "tools": ["git", "jq"],
+    "services": ["postgresql", "redis"]
+  },
+  "apps": {
+    "core": {
+      "runtime": "php",
+      "min_version": "8.5",
+      "extensions": ["json", "mbstring", "xml", "pdo_pgsql"]
+    }
+  }
+}
+```
+
+Дивіться [docs/guides/env-checker](../docs/guides/env-checker/) для повної документації.
+
+---
+
 ## Використання
 
 ### Створити задачу
