@@ -4,7 +4,7 @@
 # Interactive pipeline monitor with tab-based TUI.
 # Version: 0.15.2
 #
-MONITOR_VERSION="0.16.0"
+MONITOR_VERSION="0.16.1"
 # Usage:
 #   ./builder/monitor/pipeline-monitor.sh              # auto-detect tasks/ folder
 #   ./builder/monitor/pipeline-monitor.sh tasks/       # monitor specific tasks folder
@@ -788,6 +788,9 @@ format_cost() {
 }
 
 # Detect which agent is currently running by checking opencode processes
+# Output: agent_name|started_epoch|log_size|log_mtime|health
+# health: "alive" (log growing or process found), "stale" (no log growth >60s),
+#          "dead" (no log growth >300s or no process found)
 detect_live_agent() {
   local worker_dir="$1"
   local wt_log="$worker_dir/.opencode/pipeline/logs"
@@ -812,7 +815,30 @@ detect_live_agent() {
       fi
       # Fallback to file birth/creation time if filename parse failed
       [[ "$started_epoch" -eq 0 ]] && started_epoch=$(stat -c '%W' "$log_file" 2>/dev/null || stat -c '%Y' "$log_file" 2>/dev/null || echo "0")
-      echo "${agent_name}|${started_epoch}|${log_size}"
+
+      # Health detection: check log freshness and process liveness
+      local log_mtime now health="alive"
+      log_mtime=$(stat -c %Y "$log_file" 2>/dev/null || stat -f %m "$log_file" 2>/dev/null || echo "0")
+      now=$(date +%s)
+      local idle=$(( now - log_mtime ))
+
+      # Check if opencode/pipeline process is actually running for this worker
+      local wname; wname=$(basename "$worker_dir")
+      local has_process=false
+      if pgrep -f "pipeline.sh.*${wname}" &>/dev/null || pgrep -f "${worker_dir}" &>/dev/null; then
+        has_process=true
+      fi
+
+      if [[ "$has_process" == false ]]; then
+        # No process found — likely crashed
+        health="dead"
+      elif (( idle > 300 )); then
+        health="dead"
+      elif (( idle > 60 )); then
+        health="stale"
+      fi
+
+      echo "${agent_name}|${started_epoch}|${log_size}|${log_mtime}|${health}"
       return
     fi
   done
@@ -822,7 +848,7 @@ detect_live_agent() {
 # Only shows meta from worktree log dirs (current/recent batch), not old main logs
 build_activity_data() {
   ACTIVITY_STEPS=()       # "worker|agent|model|status|started|finished|duration|in_tok|out_tok|cache_r|cost"
-  ACTIVITY_LIVE=()        # "worker|agent|started|log_bytes" (currently running)
+  ACTIVITY_LIVE=()        # "worker|agent|started|log_bytes|log_mtime|health" (currently running)
   ACTIVITY_TASK_TITLE=""
   ACTIVITY_TASK_STARTED=0
   ACTIVITY_TOTAL_COST="0"
@@ -1031,18 +1057,41 @@ render_logs_tab() {
     local live
     for live in "${ACTIVITY_LIVE[@]}"; do
       [[ $shown -ge $available_lines ]] && break
-      IFS='|' read -r l_worker l_agent l_started l_bytes <<< "$live"
+      IFS='|' read -r l_worker l_agent l_started l_bytes l_mtime l_health <<< "$live"
 
       local elapsed=$(( now - l_started ))
       local elapsed_str; elapsed_str=$(format_duration "$elapsed")
       local bytes_kb=$(( l_bytes / 1024 ))
 
-      # Animated spinner
-      local spin_chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-      local spin_idx=$(( (now % 10) ))
-      local spinner="${spin_chars:$spin_idx:1}"
+      local color="$YELLOW"
+      local status_text="running"
+      local spinner_str=""
+      local health_hint=""
 
-      buf_line "  ${YELLOW}${spinner}${RESET} ${DIM}$(format_epoch "$l_started")${RESET}  ${YELLOW}${BOLD}${l_agent}${RESET}  ${YELLOW}running ${elapsed_str}${RESET}  ${DIM}${bytes_kb}KB log${RESET}  ${DIM}#${l_worker}${RESET}"
+      case "$l_health" in
+        dead)
+          color="$RED"
+          status_text="dead?"
+          spinner_str="${RED}✗${RESET}"
+          local idle=$(( now - l_mtime ))
+          health_hint="  ${RED}no activity ${idle}s${RESET}"
+          ;;
+        stale)
+          color="$YELLOW"
+          status_text="stale"
+          spinner_str="${YELLOW}⏳${RESET}"
+          local idle=$(( now - l_mtime ))
+          health_hint="  ${YELLOW}idle ${idle}s${RESET}"
+          ;;
+        *)
+          # Animated spinner for healthy tasks
+          local spin_chars='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+          local spin_idx=$(( (now % 10) ))
+          spinner_str="${YELLOW}${spin_chars:$spin_idx:1}${RESET}"
+          ;;
+      esac
+
+      buf_line "  ${spinner_str} ${DIM}$(format_epoch "$l_started")${RESET}  ${color}${BOLD}${l_agent}${RESET}  ${color}${status_text} ${elapsed_str}${RESET}  ${DIM}${bytes_kb}KB log${RESET}${health_hint}  ${DIM}#${l_worker}${RESET}"
       ((shown++))
     done
   fi
@@ -1267,14 +1316,25 @@ action_start_task() {
     rm -f "$wt_task_file"
     local duration=$(( $(date +%s) - start_time )) batch_ts; batch_ts=$(date +%Y%m%d_%H%M%S)
     local base_name; base_name=$(basename "$active_file")
+    # Copy summary and artifacts from worktree before cleanup (both success and failure)
+    mkdir -p "$TASK_SOURCE/summary" "$TASK_SOURCE/artifacts"
+    if [[ -d "$wt/builder/tasks/summary" ]]; then
+      for sf in "$wt"/builder/tasks/summary/*.md; do
+        [[ -f "$sf" ]] || continue
+        cp "$sf" "$TASK_SOURCE/summary/" 2>/dev/null || true
+      done
+    fi
+    if [[ -d "$wt/builder/tasks/artifacts" ]]; then
+      cp -r "$wt"/builder/tasks/artifacts/*/ "$TASK_SOURCE/artifacts/" 2>/dev/null || true
+    fi
+
     if [[ $exit_code -eq 0 ]]; then
       { echo "<!-- batch: ${batch_ts} | status: pass | duration: ${duration}s | branch: ${task_branch} -->"; cat "$active_file"; } > "$TASK_SOURCE/done/${base_name}"
       rm -f "$TASK_SOURCE/failed/${base_name}"  # clean leftover from previous attempt
     else
       mkdir -p "$TASK_SOURCE/failed"
       { echo "<!-- batch: ${batch_ts} | status: fail | duration: ${duration}s | branch: ${task_branch} -->"; cat "$active_file"; } > "$TASK_SOURCE/failed/${base_name}"
-      # Extract summary from pipeline branch (summarizer runs even on failure)
-      mkdir -p "$TASK_SOURCE/summary"
+      # Also try extracting from git branch if worktree copy failed
       local summary_files
       summary_files=$(git -C "$REPO_ROOT" ls-tree --name-only "${task_branch}:builder/tasks/summary/" 2>/dev/null | grep -v '\.gitkeep$' || true)
       local sf
