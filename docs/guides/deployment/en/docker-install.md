@@ -19,7 +19,7 @@ Infrastructure (bundled):
   PostgreSQL 16, Redis 7, OpenSearch 2.11, RabbitMQ 3.13
 
 Optional add-ons (separate compose fragments):
-  Langfuse (LLM observability), OpenClaw (Telegram bot), Slides
+  Langfuse (LLM observability), OpenClaw (Telegram bot)
 ```
 
 ## Prerequisites
@@ -171,7 +171,6 @@ Create A records pointing your domain and subdomains to the server IP:
 | `langfuse.yourdomain.org` | Langfuse (if enabled) |
 | `openclaw.yourdomain.org` | OpenClaw (if enabled) |
 | `litellm.yourdomain.org` | LiteLLM |
-| `slides.yourdomain.org` | Slides (if enabled) |
 | `traefik.yourdomain.org` | Traefik dashboard |
 
 ## TLS

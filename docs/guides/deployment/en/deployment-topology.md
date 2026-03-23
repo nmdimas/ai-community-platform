@@ -62,7 +62,6 @@ Agents can be enabled or disabled independently in both modes:
 |--------|--------------------|-----------|----|
 | Langfuse (LLM observability) | `compose.langfuse.yaml` | Not yet in chart | Planned |
 | OpenClaw (Telegram gateway) | `compose.openclaw.yaml` | Not yet in chart | Planned |
-| Slides | `compose.slides.yaml` | Not yet in chart | Planned |
 
 ### Stateful infrastructure dependencies
 
@@ -167,7 +166,7 @@ The following are planned but not yet implemented:
 
 - [ ] Published versioned container images
 - [ ] Hosted Helm chart repository
-- [ ] Langfuse, OpenClaw, Slides in the Helm chart
+- [ ] Langfuse, OpenClaw in the Helm chart
 - [ ] OpenSearch and RabbitMQ as optional chart dependencies
 - [ ] Remaining agents in the Helm chart
 - [ ] Horizontal Pod Autoscaler for stateless services

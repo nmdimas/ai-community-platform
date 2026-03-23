@@ -23,6 +23,7 @@ global:
 # Core application service
 # ---------------------------------------------------------------------------
 core:
+  enabled: true
   image:
     repository: ghcr.io/nmdimas/ai-community-platform/core
     # Pin to a specific release tag in production. Never use "latest".
@@ -258,6 +259,29 @@ litellm:
   configMapRef: ""
 
 # ---------------------------------------------------------------------------
+# Website landing stub
+# ---------------------------------------------------------------------------
+website:
+  enabled: false
+  image:
+    repository: python
+    tag: "3.12-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  containerPort: 8080
+  service:
+    type: ClusterIP
+    port: 80
+  host: website.localhost
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# ---------------------------------------------------------------------------
 # Ingress
 # ---------------------------------------------------------------------------
 ingress:
@@ -315,6 +339,7 @@ externalDependencies:
 # ---------------------------------------------------------------------------
 postgresql:
   enabled: true
+  architecture: standalone
   auth:
     database: ai_community_platform
     username: app
@@ -326,6 +351,7 @@ postgresql:
   primary:
     persistence:
       enabled: true
+      storageClass: ""
       size: 10Gi
 
 redis:
@@ -335,7 +361,49 @@ redis:
   master:
     persistence:
       enabled: true
+      storageClass: ""
       size: 2Gi
+
+opensearch:
+  enabled: false
+  replicas: 1
+  singleNode: true
+  extraEnvs:
+    - name: plugins.security.disabled
+      value: "true"
+  opensearchJavaOpts: "-Xms512m -Xmx512m"
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: 8Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 768Mi
+    limits:
+      cpu: 1000m
+      memory: 1536Mi
+  service:
+    ports:
+      http: 9200
+
+rabbitmq:
+  enabled: false
+  auth:
+    username: app
+    password: app
+    existingPasswordSecret: ""
+  persistence:
+    enabled: true
+    storageClass: ""
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
 # ---------------------------------------------------------------------------
 # Migration job

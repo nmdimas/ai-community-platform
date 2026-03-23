@@ -104,15 +104,15 @@ Build all platform Dockerfiles on the VPS and push to the local registry.
   - Pushes to local registry
   - Reports build status for each image
 - [ ] 4.2 Clone/pull latest code on VPS
-- [ ] 4.3 Run `deploy/build-and-push.sh` to build and push all 8 platform images:
-  - core, knowledge-agent, hello-agent, wiki-agent, news-maker-agent, dev-reporter-agent, dev-agent, slides
+- [ ] 4.3 Run `deploy/build-and-push.sh` to build and push all 7 platform images:
+  - core, knowledge-agent, hello-agent, wiki-agent, news-maker-agent, dev-reporter-agent, dev-agent
 
 **Verification:**
 ```bash
 curl http://registry.localhost:5000/v2/_catalog
-# Expected: {"repositories":["acp/core","acp/knowledge-agent","acp/hello-agent","acp/wiki-agent","acp/news-maker-agent","acp/dev-reporter-agent","acp/dev-agent","acp/slides"]}
+# Expected: {"repositories":["acp/core","acp/knowledge-agent","acp/hello-agent","acp/wiki-agent","acp/news-maker-agent","acp/dev-reporter-agent","acp/dev-agent"]}
 # Verify each image has the expected tag:
-for img in core knowledge-agent hello-agent wiki-agent news-maker-agent dev-reporter-agent dev-agent slides; do
+for img in core knowledge-agent hello-agent wiki-agent news-maker-agent dev-reporter-agent dev-agent; do
   curl -s http://registry.localhost:5000/v2/acp/$img/tags/list
 done
 ```

@@ -28,7 +28,6 @@ Internet → Traefik (порт 80) → Сервіси
              ├── dev-reporter-agent (PHP)   — звіти пайплайну
              ├── langfuse-web (Next.js)     — LLM спостережуваність
              ├── openclaw-gateway (Node.js) — Telegram бот
-             ├── slides (Slidev)            — презентації
              ├── litellm (Python)           — LLM проксі
              └── traefik dashboard
 Інфраструктура:
@@ -112,7 +111,7 @@ make migrate      # Запускає міграції баз даних
 ```bash
 # Перевірити що всі сервіси працюють
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) ps
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) ps
 
 # Тестові health endpoint-и
 curl -s http://localhost/health
@@ -130,11 +129,10 @@ Traefik маршрутизує трафік по hostname. Кожен compose ф
 | Langfuse | `https://langfuse.brama.dev` | `http://langfuse.localhost` |
 | OpenClaw | `https://openclaw.brama.dev` | `http://openclaw.localhost` |
 | LiteLLM | `https://litellm.brama.dev` | `http://litellm.localhost` |
-| Slides | `https://slides.brama.dev` | `http://slides.localhost` |
 | Traefik | `https://traefik.brama.dev` | `http://traefik.localhost` |
 
 **DNS**: Створіть A-записи для `brama.dev` та піддоменів `langfuse.`, `openclaw.`, `litellm.`,
-`slides.`, `traefik.` на IP сервера.
+`traefik.` на IP сервера.
 
 **TLS**: Поки не налаштований. Варіанти:
 - Вбудований Let's Encrypt в Traefik (ACME)
@@ -173,7 +171,7 @@ ssh root@your-server
 cd /root/app/ai-community-platform
 git pull origin main
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
   up -d --build
 ```
 

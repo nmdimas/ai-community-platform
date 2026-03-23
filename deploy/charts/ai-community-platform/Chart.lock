@@ -1,0 +1,15 @@
+dependencies:
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.5.38
+- name: redis
+  repository: https://charts.bitnami.com/bitnami
+  version: 19.6.4
+- name: rabbitmq
+  repository: https://charts.bitnami.com/bitnami
+  version: 15.5.3
+- name: opensearch
+  repository: https://opensearch-project.github.io/helm-charts/
+  version: 2.37.0
+digest: sha256:d5c5238803fd83496f440dfc54d281f5928809597cae2e2dd8d49b512e863158
+generated: "2026-03-23T14:23:19.334856+02:00"

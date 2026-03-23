@@ -1,0 +1,75 @@
+global:
+  security:
+    allowInsecureImages: true
+
+core:
+  enabled: false
+
+coreScheduler:
+  enabled: false
+
+agents:
+  knowledge:
+    enabled: false
+  hello:
+    enabled: false
+  newsMaker:
+    enabled: false
+
+litellm:
+  enabled: false
+
+website:
+  enabled: true
+  host: website.192.168.64.4.sslip.io
+
+ingress:
+  enabled: true
+  className: traefik
+
+migrations:
+  enabled: false
+
+postgresql:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/postgresql
+  primary:
+    persistence:
+      enabled: true
+      storageClass: local-path
+      size: 5Gi
+
+redis:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/redis
+  master:
+    persistence:
+      enabled: true
+      storageClass: local-path
+      size: 1Gi
+
+rabbitmq:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnamilegacy/rabbitmq
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 2Gi
+
+opensearch:
+  enabled: true
+  extraEnvs:
+    - name: plugins.security.disabled
+      value: "true"
+    - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+      value: "LocalAdmin123!"
+  persistence:
+    enabled: true
+    storageClass: local-path
+    size: 8Gi

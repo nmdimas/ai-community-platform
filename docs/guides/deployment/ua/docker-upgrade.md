@@ -127,7 +127,7 @@ make up
 
 ```bash
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
   up -d --build --no-deps <service-name>
 ```
 

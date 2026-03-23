@@ -41,7 +41,6 @@ deployment:
 |---------|------|-----------------|
 | `langfuse-web`, `langfuse-worker` | LLM observability | `compose.langfuse.yaml` |
 | `openclaw-gateway`, `openclaw-cli` | Telegram bot gateway | `compose.openclaw.yaml` |
-| `slides` | Presentation decks | `compose.slides.yaml` |
 
 ### Optional Agent Services
 
@@ -235,7 +234,6 @@ compose.core.yaml               # Core platform + scheduler
 compose.agent-*.yaml            # Optional agents (all present files are included)
 compose.langfuse.yaml           # Optional: LLM observability
 compose.openclaw.yaml           # Optional: Telegram bot gateway
-compose.slides.yaml             # Optional: Presentation decks
 compose.override.yaml           # Operator overrides (if present)
 ```
 

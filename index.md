@@ -1,6 +1,6 @@
 # Documentation Index
 
-Agent-facing memory index for `AI Community Platform`. Always load this file first.
+Agent-facing memory index for the `brama-core` product repository. Load this file when working on product code, product docs, or product specs inside `brama-core/`.
 
 ## Product
 
@@ -73,7 +73,8 @@ Agent-facing memory index for `AI Community Platform`. Always load this file fir
 
 ## Local Runtime
 
-- `docs/setup/local-dev/en/local-dev.md` — local Docker Compose development environment (includes OpenClaw + Telegram setup)
+- Workspace runtime and deployment shell live in the repository root outside `brama-core`
+- `docs/setup/local-dev/en/local-dev.md` — product-facing local development notes that depend on the workspace runtime
 
 ## Recommended Build Order
 

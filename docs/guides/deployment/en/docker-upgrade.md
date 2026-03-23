@@ -129,7 +129,7 @@ For a targeted single-service upgrade (only when the release notes confirm the c
 
 ```bash
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
   up -d --build --no-deps <service-name>
 ```
 

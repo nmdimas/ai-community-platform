@@ -22,7 +22,7 @@ Single host
   ├── Core platform + scheduler
   ├── LiteLLM (LLM proxy)
   ├── PostgreSQL, Redis, OpenSearch, RabbitMQ (bundled)
-  └── Optional: agents, Langfuse, OpenClaw, Slides
+  └── Optional: agents, Langfuse, OpenClaw
 ```
 
 All services run on one host. Stateful services are bundled as Docker volumes.
@@ -45,7 +45,7 @@ Cluster
   ├── Ingress (Traefik or nginx-ingress)
   ├── PostgreSQL (bundled or external managed)
   ├── Redis (bundled or external managed)
-  └── Optional: Langfuse, OpenClaw, Slides
+  └── Optional: Langfuse, OpenClaw
 ```
 
 Stateful services may be replaced by managed external services (RDS, ElastiCache, etc.).

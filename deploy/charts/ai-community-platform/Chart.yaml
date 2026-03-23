@@ -32,3 +32,11 @@ dependencies:
     version: "19.x.x"
     repository: https://charts.bitnami.com/bitnami
     condition: redis.enabled
+  - name: rabbitmq
+    version: "15.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: rabbitmq.enabled
+  - name: opensearch
+    version: "2.x.x"
+    repository: https://opensearch-project.github.io/helm-charts/
+    condition: opensearch.enabled

@@ -21,7 +21,7 @@ Internet → Traefik (порт 80) → Сервіси застосунку
   PostgreSQL 16, Redis 7, OpenSearch 2.11, RabbitMQ 3.13
 
 Опціональні доповнення (окремі compose-фрагменти):
-  Langfuse (LLM-спостережуваність), OpenClaw (Telegram-бот), Slides
+  Langfuse (LLM-спостережуваність), OpenClaw (Telegram-бот)
 ```
 
 ## Передумови
@@ -173,7 +173,6 @@ done
 | `langfuse.yourdomain.org` | Langfuse (якщо увімкнено) |
 | `openclaw.yourdomain.org` | OpenClaw (якщо увімкнено) |
 | `litellm.yourdomain.org` | LiteLLM |
-| `slides.yourdomain.org` | Slides (якщо увімкнено) |
 | `traefik.yourdomain.org` | Traefik dashboard |
 
 ## TLS

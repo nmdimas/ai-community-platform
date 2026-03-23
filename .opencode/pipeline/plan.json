@@ -1,1 +1,0 @@
-{"profile":"complex+infra","reasoning":"K3s migration from Docker Compose - large infrastructure task with Helm charts, CI/CD, and deployment changes","agents":["architect","coder","validator","tester","auditor","documenter","summarizer"]}

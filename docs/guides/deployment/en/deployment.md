@@ -28,7 +28,6 @@ Internet → Traefik (port 80) → Services
              ├── dev-reporter-agent (PHP)   — pipeline reporter
              ├── langfuse-web (Next.js)     — LLM observability
              ├── openclaw-gateway (Node.js) — Telegram bot
-             ├── slides (Slidev)            — presentation decks
              ├── litellm (Python)           — LLM routing proxy
              └── traefik dashboard
 Infrastructure:
@@ -112,7 +111,7 @@ make migrate      # Run database migrations
 ```bash
 # Check all services are running
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) ps
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) ps
 
 # Test health endpoints
 curl -s http://localhost/health
@@ -130,11 +129,10 @@ Traefik routes traffic by hostname. Each compose file defines dual `Host()` rule
 | Langfuse | `https://langfuse.brama.dev` | `http://langfuse.localhost` |
 | OpenClaw | `https://openclaw.brama.dev` | `http://openclaw.localhost` |
 | LiteLLM | `https://litellm.brama.dev` | `http://litellm.localhost` |
-| Slides | `https://slides.brama.dev` | `http://slides.localhost` |
 | Traefik | `https://traefik.brama.dev` | `http://traefik.localhost` |
 
 **DNS**: Create A records pointing `brama.dev` and the subdomains `langfuse.`, `openclaw.`,
-`litellm.`, `slides.`, and `traefik.` to the server IP.
+`litellm.`, and `traefik.` to the server IP.
 
 **TLS**: Not yet configured. Options:
 - Traefik built-in Let's Encrypt (ACME)
@@ -173,7 +171,7 @@ ssh root@your-server
 cd /root/app/ai-community-platform
 git pull origin main
 docker compose -f compose.yaml -f compose.core.yaml \
-  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml compose.slides.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
+  $(for f in compose.agent-*.yaml compose.langfuse.yaml compose.openclaw.yaml; do [ -f "$f" ] && echo -n "-f $f "; done) \
   up -d --build
 ```
 

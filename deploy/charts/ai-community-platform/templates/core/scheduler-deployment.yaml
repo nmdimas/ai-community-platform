@@ -1,4 +1,4 @@
-{{- if .Values.coreScheduler.enabled -}}
+{{- if and .Values.core.enabled .Values.coreScheduler.enabled -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

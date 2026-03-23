@@ -41,7 +41,6 @@ Docker і Kubernetes пакування поділяють цей контрак
 |--------|------|-----------------|
 | `langfuse-web`, `langfuse-worker` | LLM-спостережуваність | `compose.langfuse.yaml` |
 | `openclaw-gateway`, `openclaw-cli` | Telegram-бот шлюз | `compose.openclaw.yaml` |
-| `slides` | Презентаційні слайди | `compose.slides.yaml` |
 
 ### Опціональні агенти
 
@@ -210,7 +209,6 @@ compose.core.yaml               # Core-платформа + планувальн
 compose.agent-*.yaml            # Опціональні агенти
 compose.langfuse.yaml           # Опціонально: LLM-спостережуваність
 compose.openclaw.yaml           # Опціонально: Telegram-бот шлюз
-compose.slides.yaml             # Опціонально: презентації
 compose.override.yaml           # Перевизначення оператора (якщо присутній)
 ```
 

@@ -1,5 +1,0 @@
-doctrine:
-    dbal:
-        url: '%env(DATABASE_URL)%'
-        driver: pdo_pgsql
-        profiling_collect_backtrace: '%kernel.debug%'

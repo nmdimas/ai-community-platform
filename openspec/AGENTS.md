@@ -34,11 +34,18 @@ Loose matching guidance:
 - With one of: `create`, `plan`, `make`, `start`, `help`
 
 Skip proposal for:
-- Bug fixes (restore intended behavior)
+- Bug fixes that restore intended behavior (code doesn't match spec)
 - Typos, formatting, comments
 - Dependency updates (non-breaking)
 - Configuration changes
 - Tests for existing behavior
+
+**Create proposal** for bugs when:
+- The fix changes behavior described in an existing spec
+- The spec itself is wrong or incomplete (bug in design, not implementation)
+- The fix introduces a new API contract or migration
+
+> **Rule of thumb:** "Code should do what spec says but doesn't" → no proposal. "Spec says the wrong thing" → proposal with `MODIFIED Requirements`.
 
 **Workflow**
 1. Review `openspec/project.md`, `openspec list`, and `openspec list --specs` to understand current context.

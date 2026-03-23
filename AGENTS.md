@@ -1,63 +1,29 @@
-<!-- OPENSPEC:START -->
+# Product Repo Instructions
 
-# OpenSpec Instructions
+This file applies to the `brama-core` product repository.
 
-These instructions are for AI assistants working in this project.
+Workspace-level runtime and deployment instructions now live in the root workspace [`AGENTS.md`](/Users/nmdimas/work/brama-workspace/AGENTS.md).
 
-Always open `@/openspec/AGENTS.md` when the request:
+## Use This Repository For
 
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
+- application code under `apps/`
+- product docs under `docs/`
+- product specs under `openspec/`
+- product tests under `tests/`
+- shared product skills under `skills/`
 
-Use `@/openspec/AGENTS.md` to learn:
+## Product OpenSpec
 
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
+Always open [`openspec/AGENTS.md`](/Users/nmdimas/work/brama-workspace/brama-core/openspec/AGENTS.md) when the request involves proposals, spec changes, architecture changes, or ambiguous feature work.
 
-Keep this managed block so 'openspec update' can refresh the instructions.
+## Product-Level Rules
 
-<!-- OPENSPEC:END -->
+- Treat `openspec/` as the source of truth for spec-driven product changes
+- Treat `docs/` as the source of truth for product-facing documentation
+- Treat `skills/` as the committed source of truth for shared product skills
+- Do not move runtime/deployment concerns back into `brama-core` unless the change is explicitly product-owned
 
-## Multi-Agent Policy
-
-This repository may be used by three AI coding agents:
-
-- `Codex`
-- `Claude`
-- `Antigravity`
-
-All three agents should follow the same repository-level rules, documentation conventions, and OpenSpec workflow unless a tool-specific instruction file explicitly overrides part of the behavior.
-
-## Instruction Priority
-
-- `AGENTS.md` is the shared baseline instruction file for all supported agents
-- `CLAUDE.md` may add or restate guidance for Claude-specific tooling
-- Additional agent-specific instruction files may be added later if `Antigravity` or other agents require local overrides
-
-## Global Permissions
-
-To streamline development, the following permissions are **pre-approved** for all AI agents (`Codex`, `Claude`, `Antigravity`):
-
-1.  **Docker & Compose Commands**: All commands starting with `docker` or `docker-compose` are considered safe to auto-run. Agents should set `SafeToAutoRun: true` (or equivalent) for these commands.
-2.  **File Modifications**: Agents have full permission to create, modify, or delete any files within the repository to fulfill a task. No separate confirmation is required for each file edit unless it involves critical security credentials or explicitly marked "read-only" files.
-3.  **Project Scripts**: Commands using `./vendor/bin/neuron` or project-specific scripts are pre-approved.
-
-## Shared Skills
-
-Project skills live in `skills/` (committed to repo). Each agent syncs them to its local config:
-
-- **Claude**: `.claude/skills/` (synced via `make sync-skills` or `./scripts/sync-skills.sh claude`)
-- **Cursor / Antigravity**: `.cursor/skills/` (future)
-- **Codex**: `.codex/skills/` (future)
-
-Rules:
-- Edit skills in `skills/` (source of truth), never in `.claude/skills/` or other agent dirs
-- Run `make sync-skills` after pulling changes or editing skills
-- After `git clone`, run `make sync-skills` to populate agent-specific skill directories
-
-## Scheduled Jobs (Cron Tasks)
+## Scheduled Jobs
 
 Agents can declare recurring or one-shot jobs that the platform's central scheduler executes automatically via A2A.
 
@@ -80,17 +46,9 @@ To add scheduled jobs, include a `scheduled_jobs` array in the agent's manifest 
 ```
 
 Rules:
-- `skill_id` **must** reference an existing skill from the same agent's `skills` array
-- `cron_expression` uses standard 5-field cron; omit for one-shot jobs (run once after install)
+
+- `skill_id` must reference an existing skill from the same agent's `skills` array
+- `cron_expression` uses standard 5-field cron; omit for one-shot jobs
 - Jobs are registered automatically on agent install and removed on uninstall
 - Admin can also create jobs manually via the scheduler UI at `/admin/scheduler`
-- If an agent updates and removes a skill that a job references, the job is flagged as **stale** in the admin UI
-- See `docs/features/scheduler/en/scheduler.md` for full documentation and `apps/core/config/agent-card.schema.json` for the schema
-
-## Working Expectation
-
-When multiple agents are used on the same project:
-
-- treat `docs/` as the shared product-facing source layer
-- treat OpenSpec files as the source of truth for spec-driven changes
-- avoid changing established conventions without updating the shared instructions first
+- If an agent update removes a referenced skill, the job is flagged as stale in the admin UI
